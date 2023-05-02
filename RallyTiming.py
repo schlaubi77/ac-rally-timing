@@ -1,12 +1,17 @@
 #####################################################
-# Rally Timing v1.0                                 #
-# by wimdes 4/04/2023                               #
-# thx to Hecrer, schlaubi77, PleaseStopThis, GPT-4  #
+# Rally Timing v1.3                                 #
+#                                                   #
+# Copyright wimdes & schlaubi77 9/04/2023           #
+# Released under the terms of GPLv3                 #
+# thx to Hecrer, PleaseStopThis, KubaV383, GPT-4    #
 #                                                   #
 # Find the AC Rally Wiki on Racedepartment:         #
 # https://bit.ly/3HCELP3                            #
 #                                                   #
 # changelog:                                        #
+# v1.3 added a delta functionality                  #
+# v1.2 settings configurable in ContentManager GUI  #
+# v1.1 add multi language support                   #
 #                                                   #
 #####################################################
 # TODO:                                             #
