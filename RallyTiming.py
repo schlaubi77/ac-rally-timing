@@ -90,6 +90,9 @@ with open(StartFinishJson, "r") as file:
         FinishSpline = 0
         StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 0, "TrueLength": 0}
 
+white = (1.0, 1.0, 1.0, 1.0)
+gray = (0.75, 0.75, 0.75, 1.0)
+
 ###### write some stuff into log and console
 ac.console (AppName + ": Track Name: " + TrackName)
 #ac.console (AppName + ": Start Spline: {:.10f}".format(StartSpline))
@@ -132,6 +135,7 @@ def acMain(ac_version):
 
     return AppName
 
+
 def acUpdate(deltaT):
     global line1, line2, line3, line4, line5, line6, line7
     global Status, ActualSpline, ActualSpeed, StartSpline, FinishSpline, StartSpeed, StartDistance, LastSessionTime, StartPositionAccuracy, LapCountTracker
@@ -170,7 +174,7 @@ def acUpdate(deltaT):
         Status = 3 # In stage
 
     if (Status == 3 or Status == 5) and LapCount > LapCountTracker:
-        write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime)
+        write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
         Status = 4 # Over finish
         if FinishSpline == 0:
             FinishSpline = ActualSpline
@@ -268,72 +272,225 @@ def chat_message_listener(message, sender):
 
 class ChooseReferenceWindow:
 
-    def __init__(self, name, path, x=154, y=120):
+    def __init__(self, name, path, x=510, y=350):
         self.name = name
         self.window = ac.newApp(name)
         ac.setSize(self.window, x, y)
         ac.setIconPosition(self.window, 16000, 16000)
 
-        self.reffiles = os.listdir(path)
-        self.reffile_index = 0
-        self.currently_used_index = None
+        self.list = SelectionList(1, 20, 35, [str(p).replace(".refl", "") for p in os.listdir(path)], self.window, height=300, width=450)  #### procede
 
-        self.activated = False
-        ac.addOnAppActivatedListener(self.window, on_reference_activate)
-        ac.addOnAppDismissedListener(self.window, on_reference_deactivate)
 
-        self.down_button = ac.addButton(self.window, "-")
-        ac.setPosition(self.down_button, 5, 25)
-        ac.setSize(self.down_button, 22, 22)
-        ac.addOnClickedListener(self.down_button, on_reference_minus)
+class SelectionListElement:
+    def __init__(self, element_id, list_handler, selection_button, scroll_button):
+        self.element_id = element_id
+        self.list_handler = list_handler
+        self.selection_button = selection_button
+        self.scroll_button = scroll_button
+        self.click_event = self.clickEvent
 
-        self.up_button = ac.addButton(self.window, "+")
-        ac.setPosition(self.up_button, 127, 25)
-        ac.setSize(self.up_button, 22, 22)
-        ac.addOnClickedListener(self.up_button, on_reference_plus)
+        ac.addOnClickedListener(self.selection_button, self.click_event)
 
-        self.label = ac.addLabel(self.window, lang["ref.nofiles"])  # max 13 chars per line
-        ac.setPosition(self.label, 32, 25)
-        ac.setSize(self.label, 90, 20)
+    def clickEvent(self, dummy, variable):
+        global reference_data, last_ref_index
 
-        self.confirm_button = ac.addButton(self.window, lang["ref.choose"])
-        ac.setPosition(self.confirm_button, 35, 90)
-        ac.setSize(self.confirm_button, 84, 25)
-        ac.addOnClickedListener(self.confirm_button, on_reference_select)
+        if 0 <= self.list_handler.selection_indx < self.list_handler.rows_nbr:
+            # if any previous selection present, clear it
+            self.list_handler.updateElement(self.list_handler.selection_indx, colour=white)
 
-        self.change_reffile_index(0)
+        # set new index and mark selection with gray
+        sel_indx = self.element_id
+        self.list_handler.selection_indx = sel_indx
+        ac.setText(self.list_handler.list_head, ac.getText(self.selection_button))
+        ac.setFontColor(self.list_handler.list_head, *white)
+        ac.setFontColor(self.selection_button, *gray)
 
-    def set_text(self, text):
-        ac.setText(self.label, text)
+        reference_data = read_reference_file(ReferenceFolder + "/" + ac.getText(self.selection_button) + ".refl")
+        last_ref_index = 0
+        ac.log(str(reference_data))
+        # collapse list
+        self.list_handler.dropListDown(0, 0)
 
-    def set_color(self, r, g, b):
-        ac.setFontColor(self.label, r, g, b, 1)
 
-    def change_reffile_index(self, mode):
-        if len(self.reffiles) == 0:
-            self.set_text(lang["ref.nofiles"])
+class SelectionList:
+    def __init__(self, list_id, pos_x, pos_y, data, window, height=200, width=150):
+        self.parent_window = window
+
+        self.list_id = list_id
+        self.btn_size = round(20)
+        self.width = width
+        self.row_height = self.btn_size
+        self.height = height
+        self.pos_x = pos_x
+        self.pos_y = pos_y
+        self.rows_nbr = 0
+        self.elements = data
+        self.list_elements = []
+        self.scroll_indx = 0
+        self.selection_indx = -999
+        self.state_down = False
+        self.scrollable = True
+        self.handler_drop_down = self.dropListDown
+        self.handler_scroll_up = self.scrollListUp
+        self.handler_scroll_down = self.scrollListDown
+
+        # header
+        self.list_head = ac.addButton(self.parent_window , "")
+        ac.log("Test" + str(self.list_head))
+        ac.setSize(self.list_head, self.width, self.row_height)
+        ac.setPosition(self.list_head, self.pos_x, self.pos_y)
+        ac.setFontSize(self.list_head, round(15))
+        ac.setFontAlignment(self.list_head, "center")
+        ac.drawBorder(self.list_head, 1)
+        ac.setBackgroundOpacity(self.list_head, 0.0)
+        ac.setVisible(self.list_head, 1)
+
+        self.head_button = ac.addButton(self.parent_window , "v")
+        ac.setSize(self.head_button, self.btn_size, self.btn_size)
+        ac.setPosition(self.head_button, self.pos_x + self.width, self.pos_y)
+        ac.setFontSize(self.head_button, round(15))
+        ac.setFontAlignment(self.head_button, "center")
+        ac.drawBorder(self.head_button, 1)
+        ac.setBackgroundOpacity(self.head_button, 0.0)
+        ac.addOnClickedListener(self.head_button, self.handler_drop_down)
+        ac.setVisible(self.head_button, 1)
+
+        # labels with setups
+        self.createSelectionButtons()
+
+    def createSelectionButtons(self):
+        # calculate max number of list rows that will fit app window (minus 1 for some space below it)
+        self.rows_nbr = ((self.height - self.pos_y - self.row_height) // self.row_height) - 1
+
+        for i in range(self.rows_nbr):
+            pos_y = ((i + 1) * self.row_height) + self.pos_y
+            ac.log("called with i=" + str(i))
+
+            self.list_elements.append(
+                SelectionListElement(i, self, ac.addButton(self.parent_window , ""), ac.addButton(self.parent_window , "")))
+
+            # define element part
+            ac.setVisible(self.list_elements[i].selection_button, 0)
+            ac.setSize(self.list_elements[i].selection_button, self.width, self.row_height)
+            ac.setPosition(self.list_elements[i].selection_button, self.pos_x, pos_y)
+            ac.setFontSize(self.list_elements[i].selection_button, round(15))
+            ac.setFontAlignment(self.list_elements[i].selection_button, "center")
+            ac.drawBorder(self.list_elements[i].selection_button, 0)
+            ac.setBackgroundOpacity(self.list_elements[i].selection_button, 0.9)
+
+            # define scroll bar part
+            ac.setVisible(self.list_elements[i].scroll_button, 0)
+            ac.setSize(self.list_elements[i].scroll_button, self.btn_size, self.btn_size)
+            ac.setPosition(self.list_elements[i].scroll_button, self.pos_x + self.width, pos_y)
+            ac.setFontSize(self.list_elements[i].scroll_button, round(15))
+            ac.setFontAlignment(self.list_elements[i].scroll_button, "center")
+            ac.drawBorder(self.list_elements[i].scroll_button, 0)
+            ac.setBackgroundOpacity(self.list_elements[i].scroll_button, 0.2)
+
+            if i == 0:
+                ac.log("Added 1")
+                ac.addOnClickedListener(self.list_elements[i].scroll_button, self.handler_scroll_up)
+                ac.setText(self.list_elements[i].scroll_button, "^")
+                ac.log(str(ac.drawBorder(self.list_elements[i].scroll_button, 1)))
+                ac.setBackgroundOpacity(self.list_elements[i].scroll_button, 0.9)
+            else:
+                if i == (self.rows_nbr - 1):
+                    ac.log("Added 2")
+                    ac.addOnClickedListener(self.list_elements[i].scroll_button, self.handler_scroll_down)
+                    ac.setText(self.list_elements[i].scroll_button, "v")
+                    ac.drawBorder(self.list_elements[i].scroll_button, 1)
+                    ac.setBackgroundOpacity(self.list_elements[i].scroll_button, 0.9)
+
+    def updateElement(self, indx, value=None, colour=None):
+        if 0 <= indx < self.rows_nbr:
+            if value is not None:
+                ac.setText(self.list_elements[indx].selection_button, value)
+                if indx == self.selection_indx and colour is None:
+                    ac.setFontColor(self.list_elements[indx].selection_button, *white)
+                else:
+                    if colour is None:
+                        ac.setFontColor(self.list_elements[indx].selection_button, *white)
+
+            if colour is not None:
+                ac.setFontColor(self.list_elements[indx].selection_button, *colour)
+
+    def displayElement(self, indx, visible):
+        if 0 <= indx < self.rows_nbr:
+            ac.setVisible(self.list_elements[indx].selection_button, visible)
+            if self.scrollable:
+                ac.setVisible(self.list_elements[indx].scroll_button, visible)
+            else:
+                ac.setVisible(self.list_elements[indx].scroll_button, 0)
+
+    def clearElement(self, indx):
+        if 0 <= indx < self.rows_nbr:
+            # reset value part
+            ac.setVisible(self.list_elements[indx].selection_button, 0)
+            ac.setText(self.list_elements[indx].selection_button, "")
+            ac.setFontColor(self.list_elements[indx].selection_button, *white)
+            # reset scroll part
+            ac.setVisible(self.list_elements[indx].scroll_button, 0)
+
+    def scrollListUp(self, dummy, variable):
+
+        self.scroll_indx -= 1
+        if self.scroll_indx < 0:
+            self.scroll_indx = 0
             return
-        if mode == "+":
-            self.reffile_index += 1
-            if self.reffile_index >= len(self.reffiles):
-                self.reffile_index = 0
-        elif mode == "-":
-            self.reffile_index -= 1
-            if self.reffile_index < 0:
-                self.reffile_index = len(self.reffiles) - 1
-        elif mode == 0:
-            self.reffile_index = 0
-        else:
-            ac.log("[" + AppName + "]" + "SEVERE: No change mode set")
+
+        if self.selection_indx != -999:
+            self.selection_indx += 1
+
+        offset = self.scroll_indx
+        for indx in range(0, self.rows_nbr):
+            if indx + offset < len(self.elements):
+                self.updateElement(indx, value=self.elements[indx + offset].rstrip('.ini'))
+
+    def scrollListDown(self, dummy, variable):
+        self.scroll_indx += 1
+        if self.scroll_indx + self.rows_nbr > len(self.elements):
+            self.scroll_indx = len(self.elements) - self.rows_nbr
             return
 
-        filename = self.reffiles[self.reffile_index]
-        self.set_text(filename.split("_")[0] + "\n" + filename.split("_")[1] + "\n" + filename.split("_")[2].replace(".refl", "")[:16])
+        if self.selection_indx != -999:
+            self.selection_indx -= 1
 
-        if self.reffile_index == self.currently_used_index:
-            self.set_color(0, 1, 0)
-        else:
-            self.set_color(1, 1, 1)
+        offset = self.scroll_indx
+        for indx in range(0, self.rows_nbr):
+            if indx + offset < len(self.elements):
+                self.updateElement(indx, value=self.elements[indx + offset].rstrip('.ini'))
+            else:
+                self.updateElement(indx, value="")
+
+    def dropListDown(self, dummy, variable):
+        target_state_down = not self.state_down
+
+        if not target_state_down:
+            if self.selection_indx != -999:
+                # in case of list collapsing, calculate new selection index
+                self.selection_indx = self.scroll_indx + self.selection_indx
+            self.scroll_indx = 0
+
+        for indx in range(self.rows_nbr):
+            # reset list when collapsing
+            if not target_state_down:
+                if indx < len(self.elements):
+                    self.updateElement(indx, value=self.elements[indx])
+                    self.displayElement(indx, int(target_state_down))
+                else:
+                    self.clearElement(indx)
+            else:
+                # display only rows with content
+                if indx < len(self.elements):
+                    self.updateElement(indx, value=self.elements[indx])
+                    self.displayElement(indx, int(target_state_down))
+
+        self.state_down = target_state_down
+
+    def addElement(self, element):
+        self.elements.append(element)
+        self.list_elements = []
+        self.createSelectionButtons()
 
 
 def read_reference_file(path):
@@ -363,34 +520,7 @@ def write_reference_file(origin_data, path, time):
         ac.log("[" + AppName + "]" + "INFO: Writing to" + file.name)
         file.writelines(write)
         file.close()
-    window_choose_reference.reffiles.append(filename)
-    on_reference_plus()
-    on_reference_minus()
-
-
-def on_open_delta_page(*args):
-    if window_choose_reference.activated:
-        window_choose_reference.activated = False
-        ac.setVisible(window_choose_reference.window, 0)
-    else:
-        window_choose_reference.activated = True
-        ac.setVisible(window_choose_reference.window, 1)
-
-
-def on_reference_plus(*args):
-    window_choose_reference.change_reffile_index("+")
-
-
-def on_reference_minus(*args):
-    window_choose_reference.change_reffile_index("-")
-
-
-def on_reference_activate(*args):
-    window_choose_reference.activated = True
-
-
-def on_reference_deactivate(*args):
-    window_choose_reference.activated = False
+    window_choose_reference.list.addElement(filename.replace(".refl", ""))
 
 
 def on_reference_select(*args):

@@ -15,9 +15,7 @@
 		"startspeedlimit": "Start Speed Limit: ",
 		"time": "Time: ",
 		"inbrack.estimated": "(Estimated)",
-		"inbrack.server": "(on server)",
-		"ref.nofiles": "No reference\nfiles for this\ntrack",
-		"ref.choose": "Choose"
+		"inbrack.server": "(on server)"
 	},
 	"Spanish": {
 		"phase.detect": "DETECTING START LINE",
@@ -35,9 +33,7 @@
 		"startspeedlimit": "Start Speed Limit: ",
 		"time": "Time: ",
 		"inbrack.estimated": "(Estimated)",
-		"inbrack.server": "(on server)",
-		"ref.nofiles": "No reference\nfiles for this\ntrack",
-		"ref.choose": "Choose"
+		"inbrack.server": "(on server)"
 	},
 	"French": {
 		"phase.detect": "DETECTING START LINE",
@@ -55,9 +51,7 @@
 		"startspeedlimit": "Start Speed Limit: ",
 		"time": "Time: ",
 		"inbrack.estimated": "(Estimated)",
-		"inbrack.server": "(on server)",
-		"ref.nofiles": "No reference\nfiles for this\ntrack",
-		"ref.choose": "Choose"
+		"inbrack.server": "(on server)"
 	},
 	"German": {
 		"phase.detect": "START WIRD GESUCHT",
@@ -75,8 +69,6 @@
 		"startspeedlimit": "Höchstmögliche Startgeschwindigkeit: ",
 		"time": "Zeit: ",
 		"inbrack.estimated": "(Geschätzt)",
-		"inbrack.server": "(vom Server)",
-		"ref.nofiles": "Keine Delta-\ndateien für\ndiese Strecke",
-		"ref.choose": "Auswählen"
+		"inbrack.server": "(vom Server)"
 	}
 }
