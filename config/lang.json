@@ -14,6 +14,8 @@
 		"startspeed": "Start Speed: ", 
 		"startspeedlimit": "Start Speed Limit: ",
 		"time": "Time: ",
+		"othercars": "Show other cars",
+		"otherdrivers": "Show other drivers",
 		"inbrack.estimated": "(Estimated)",
 		"inbrack.server": "(on server)"
 	},
@@ -32,6 +34,8 @@
 		"startspeed": "Start Speed: ", 
 		"startspeedlimit": "Start Speed Limit: ",
 		"time": "Time: ",
+		"othercars": "Show other cars",
+		"otherdrivers": "Show other drivers",
 		"inbrack.estimated": "(Estimated)",
 		"inbrack.server": "(on server)"
 	},
@@ -50,6 +54,8 @@
 		"startspeed": "Start Speed: ", 
 		"startspeedlimit": "Start Speed Limit: ",
 		"time": "Time: ",
+		"othercars": "Show other cars",
+		"otherdrivers": "Show other drivers",
 		"inbrack.estimated": "(Estimated)",
 		"inbrack.server": "(on server)"
 	},
@@ -68,6 +74,8 @@
 		"startspeed": "Startgeschwindigkeit: ",
 		"startspeedlimit": "Höchstmögliche Startgeschwindigkeit: ",
 		"time": "Zeit: ",
+		"othercars": "Zeige andere Fahrzeuge",
+		"otherdrivers": "Zeige andere Fahrer",
 		"inbrack.estimated": "(Geschätzt)",
 		"inbrack.server": "(vom Server)"
 	}

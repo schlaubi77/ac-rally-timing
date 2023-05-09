@@ -17,10 +17,10 @@
 # TODO:                                             #
 # cleanup code                                      #
 # reset track data button                           #
-# access options through GUI                        #
 # add replay detection                              #
-# add delta timing, linear bar
+# add linear bar
 #
+# doDelta to binary search, interval for ref file creation
 #####################################################
 from datetime import datetime
 import sys, ac, acsys, os, json, math, configparser
@@ -66,10 +66,10 @@ else:
 ReferenceFolder = "apps/python/RallyTiming/referenceLaps/" + TrackName
 
 window_choose_reference = 0
+window_timing = 0
 reference_data = []
 data_collected = []
 last_ref_index = 0
-line_delta = 0
 
 if not os.path.exists(ReferenceFolder):
     os.makedirs(ReferenceFolder)
@@ -98,6 +98,8 @@ with open(StartFinishJson, "r") as file:
 white = (1.0, 1.0, 1.0, 1.0)
 gray = (0.75, 0.75, 0.75, 1.0)
 
+line1, line2, line3, line4, line5, line6 = [0 for i in range(6)]
+
 ###### write some stuff into log and console
 ac.console (AppName + ": Track Name: " + TrackName)
 #ac.console (AppName + ": Start Spline: {:.10f}".format(StartSpline))
@@ -108,41 +110,38 @@ ac.console (AppName + ": Track Name: " + TrackName)
 
 
 def acMain(ac_version):
-    global line1, line2, line3, line4, line5, line6, line7, line_delta, window_choose_reference, appWindow
+    global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow
 
     appWindow = ac.newApp(AppName)
 
     if not DebugMode:
         if not ShowFuel:
-            ac.setSize(appWindow, 373, 112)    #default is 373,92
+            ac.setSize(appWindow, 373, 92)    #default is 373,92
         else:
-            ac.setSize(appWindow, 373, 132)
+            ac.setSize(appWindow, 373, 112)
     else:
-        ac.setSize(appWindow, 580, 192)
+        ac.setSize(appWindow, 580, 172)
     ac.setTitle(appWindow, "")
     ac.drawBorder(appWindow, 0)
     ac.setIconPosition(appWindow, 0, -10000)
     ac.setBackgroundOpacity(appWindow, 0.1)
 
     window_choose_reference = ChooseReferenceWindow("Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
+    window_timing = TimingWindow()
 
     lines = []
-    for i in range(7):
+    for i in range(6):
         line = ac.addLabel(appWindow, "")
         lines.append(line)
         ac.setPosition(line, 10, 5 + 25*i)
         ac.setFontSize(line, 20)
-    line1, line2, line3, line4, line5, line6, line7 = lines
-
-    line_delta = ac.addLabel(appWindow, "+0.000")
-    ac.setPosition(line_delta, 160, 80)
-    ac.setFontSize(line_delta, 20)
+    line1, line2, line3, line4, line5, line6 = lines
 
     return AppName
 
 
 def acUpdate(deltaT):
-    global line1, line2, line3, line4, line5, line6, line7
+    global line1, line2, line3, line4, line5, line6
     global Status, ActualSpline, ActualSpeed, StartSpline, FinishSpline, StartSpeed, StartDistance, LastSessionTime, StartPositionAccuracy, LapCountTracker
     global SpeedTrapValue, StartChecked, data_collected, last_ref_index
 
@@ -208,7 +207,7 @@ def acUpdate(deltaT):
     if (Status == 3 or Status == 4 or Status == 5) and ActualSpline < StartSpline:
         data_collected = []
         last_ref_index = 0
-        Status = 2 # Drive to start
+        Status = 2  # Drive to start
         LapCountTracker = LapCount
         ac.setFontColor(line1, 1, 1, 1, 1)
         StartSpeed = 0
@@ -216,7 +215,7 @@ def acUpdate(deltaT):
         StartChecked = False
         StatusList[4] = lang["phase.finished"]
 
-    if (Status == 2 or Status == 6):
+    if Status == 2 or Status == 6:
             if ActualSpline == 0:
                 ac.setText(line3, lang["startdist"] + "{:.2f}".format(XYStartDistance()) + " m " + lang["inbrack.estimated"])
             else:
@@ -230,7 +229,7 @@ def acUpdate(deltaT):
     else:
         time = info.graphics.iCurrentTime
 
-    if (Status == 3 or Status == 5):
+    if Status == 3 or Status == 5:
             if ShowStartSpeed:
                 if OnServer:
                     ac.setText(line2, lang["startspeed"] + "{:.2f}".format(SpeedTrapValue) + " km/h " + lang["inbrack.server"])
@@ -238,27 +237,24 @@ def acUpdate(deltaT):
                     ac.setText(line2, lang["startspeed"] + "{:.2f}".format(StartSpeed) + " km/h")
             if ShowRemainingDistance:
                 if FinishSpline != 0:
-                    ac.setText(line3, lang["startdist"] + ": {:.0f}".format(FinishDistance) + " m")
+                    ac.setText(line3, lang["finishdist"] + "{:.0f}".format(FinishDistance) + " m")
                 else:
-                    ac.setText(line3, lang["startdist"] + ": {:.0f}".format((1 - ac.getCarState(0, acsys.CS.NormalizedSplinePosition)) * SplineLength) + " m " + lang["inbrack.estimated"])
+                    ac.setText(line3, lang["finishdist"] + "{:.0f}".format((1 - ac.getCarState(0, acsys.CS.NormalizedSplinePosition)) * SplineLength) + " m " + lang["inbrack.estimated"])
             else:
                 ac.setText(line3, "")
             data_collected.append((ActualSpline, time))
 
-    # SCH time print
-
-    ac.setText(line4,  lang["time"] + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
-    do_delta(time)
-
     ac.setText(line1, StatusList[Status])
 
+    window_timing.update()
+
     if ShowFuel:
-        ac.setText(line5, lang["fuel"] + "{:.1f}".format(info.physics.fuel) + " l")
+        ac.setText(line4, lang["fuel"] + "{:.1f}".format(info.physics.fuel) + " l")
 
     if DebugMode:
-        ac.setText(line5, "StartPositionAccuracy: {:.2f}".format(StartPositionAccuracy))
-        ac.setText(line6, "ActualSpline: {:.5f}".format(ActualSpline) + "  StartSpline: {:.5f}".format(StartSpline) + "  FinishSpline: {:.5f}".format(FinishSpline))
-        ac.setText(line7, "XYStartDistance: {:.2f}".format(XYStartDistance()) + "  LapCount: {}".format(LapCount) + "  SpeedTrapValue: {}".format(SpeedTrapValue))
+        ac.setText(line4, "StartPositionAccuracy: {:.2f}".format(StartPositionAccuracy))
+        ac.setText(line5, "ActualSpline: {:.5f}".format(ActualSpline) + "  StartSpline: {:.5f}".format(StartSpline) + "  FinishSpline: {:.5f}".format(FinishSpline))
+        ac.setText(line6, "XYStartDistance: {:.2f}".format(XYStartDistance()) + "  LapCount: {}".format(LapCount) + "  SpeedTrapValue: {}".format(SpeedTrapValue))
 
 
 def XYStartDistance():
@@ -279,11 +275,107 @@ class ChooseReferenceWindow:
 
     def __init__(self, name, path, x=510, y=350):
         self.name = name
+        self.path = path
         self.window = ac.newApp(name)
         ac.setSize(self.window, x, y)
         ac.setIconPosition(self.window, 16000, 16000)
 
-        self.list = SelectionList(1, 20, 35, [str(p).replace(".refl", "") for p in os.listdir(path)], self.window, height=300, width=450)  #### procede
+        self.otherCarsBox = ac.addCheckBox(self.window, lang["othercars"])
+        self.carStateChangedFunction = self.carStateChanged
+        self.showOtherCars = True
+        ac.setPosition(self.otherCarsBox, 20, 35)
+        ac.setSize(self.otherCarsBox, 15, 15)
+        ac.setValue(self.otherCarsBox, True)
+        ac.addOnCheckBoxChanged(self.otherCarsBox, self.carStateChangedFunction)
+
+        self.otherDriversBox = ac.addCheckBox(self.window, lang["otherdrivers"])
+        self.driverStateChangedFunction = self.driverStateChanged
+        self.showOtherDrivers = True
+        ac.setPosition(self.otherDriversBox, 255, 35)
+        ac.setSize(self.otherDriversBox, 15, 15)
+        ac.setValue(self.otherDriversBox, True)
+        ac.addOnCheckBoxChanged(self.otherDriversBox, self.driverStateChangedFunction)
+
+        self.list = SelectionList(1, 20, 65, [str(p).replace(".refl", "") for p in os.listdir(self.path)], self.window, height=300, width=450)
+
+    def carStateChanged(self, *args):
+        self.showOtherCars = bool(args[1])
+        self.refilterList()
+
+    def driverStateChanged(self, *args):
+        self.showOtherDrivers = bool(args[1])
+        self.refilterList()
+
+    def refilterList(self):
+        elements = [str(p).replace(".refl", "") for p in os.listdir(self.path)]
+        show = []
+        car = ac.getCarName(0).replace("_", "-")
+        driver = ac.getDriverName(0)
+        for e in elements:
+            if (self.showOtherDrivers or "_".join(e.split("_")[1:-1]) == driver) and (self.showOtherCars or e.split("_")[-1] == car):
+                show.append(e)
+        '''
+        if not self.showOtherCars:
+            car = ac.getCarName(0).replace("_", "-")
+            for e in elements:
+                if e.split("_")[-1] != car:
+                    elements.remove(e)
+                else:
+                    ac.log(e.split("_")[-1] + " == " + car)
+
+        if not self.showOtherDrivers:
+            driver = ac.getDriverName(0)
+            for e in elements:
+                if "_".join(e.split("_")[1:-1]) != driver:
+                    elements.remove(e)
+        
+        self.list.setElements(elements)
+        '''
+        self.list.setElements(show)
+
+
+class TimingWindow:
+
+    def __init__(self, name="Timing", x=200, y=300):
+        self.name = name
+        self.window = ac.newApp(name)
+        ac.setSize(self.window, x, y)
+        ac.setIconPosition(self.window, 16000, 16000)
+
+        self.label_time = ac.addLabel(self.window, "0:00.000")
+        ac.setPosition(self.label_time, 30, 40)
+
+        self.label_delta = ac.addLabel(self.window, "+0.000")
+        ac.setPosition(self.label_delta, 130, 40)
+
+    def update(self):
+        time = info.graphics.iCurrentTime
+        self._do_delta(time)
+        ac.setText(self.label_time, lang["time"] + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
+
+    def _do_delta(self, time):
+        global last_ref_index
+        if last_ref_index >= len(reference_data):
+            last_ref_index = len(reference_data) - 1
+
+        if len(reference_data) == 0:
+            ac.setFontColor(self.label_delta, 1, 1, 1, 1)
+            ac.setText(self.label_delta, "+0.000")
+            return
+
+        while reference_data[last_ref_index][0] < ac.getCarState(0, acsys.CS.NormalizedSplinePosition):
+            if len(reference_data) > last_ref_index + 1:
+                last_ref_index += 1
+            else:
+                break
+
+        delta = time - reference_data[last_ref_index][1]
+        if delta > 0:
+            ac.setFontColor(self.label_delta, 1, 0, 0, 1)
+            ac.setText(self.label_delta, "+" + str(int(delta // 1000)) + "." + str(int(delta % 1000)))
+        else:
+            ac.setFontColor(self.label_delta, 0, 1, 0, 1)
+            ac.setText(self.label_delta, "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
 
 
 class SelectionListElement:
@@ -312,13 +404,12 @@ class SelectionListElement:
 
         reference_data = read_reference_file(ReferenceFolder + "/" + ac.getText(self.selection_button) + ".refl")
         last_ref_index = 0
-        ac.log(str(reference_data))
         # collapse list
-        self.list_handler.dropListDown(0, 0)
+        self.list_handler.dropListDown()
 
 
 class SelectionList:
-    def __init__(self, list_id, pos_x, pos_y, data, window, height=200, width=150):
+    def __init__(self, list_id, pos_x, pos_y, data, window, height=280, width=150):
         self.parent_window = window
 
         self.list_id = list_id
@@ -340,8 +431,7 @@ class SelectionList:
         self.handler_scroll_down = self.scrollListDown
 
         # header
-        self.list_head = ac.addButton(self.parent_window , "")
-        ac.log("Test" + str(self.list_head))
+        self.list_head = ac.addButton(self.parent_window, "")
         ac.setSize(self.list_head, self.width, self.row_height)
         ac.setPosition(self.list_head, self.pos_x, self.pos_y)
         ac.setFontSize(self.list_head, round(15))
@@ -350,7 +440,7 @@ class SelectionList:
         ac.setBackgroundOpacity(self.list_head, 0.0)
         ac.setVisible(self.list_head, 1)
 
-        self.head_button = ac.addButton(self.parent_window , "v")
+        self.head_button = ac.addButton(self.parent_window, "v")
         ac.setSize(self.head_button, self.btn_size, self.btn_size)
         ac.setPosition(self.head_button, self.pos_x + self.width, self.pos_y)
         ac.setFontSize(self.head_button, round(15))
@@ -369,10 +459,9 @@ class SelectionList:
 
         for i in range(self.rows_nbr):
             pos_y = ((i + 1) * self.row_height) + self.pos_y
-            ac.log("called with i=" + str(i))
 
             self.list_elements.append(
-                SelectionListElement(i, self, ac.addButton(self.parent_window , ""), ac.addButton(self.parent_window , "")))
+                SelectionListElement(i, self, ac.addButton(self.parent_window, ""), ac.addButton(self.parent_window, "")))
 
             # define element part
             ac.setVisible(self.list_elements[i].selection_button, 0)
@@ -393,25 +482,24 @@ class SelectionList:
             ac.setBackgroundOpacity(self.list_elements[i].scroll_button, 0.2)
 
             if i == 0:
-                ac.log("Added 1")
                 ac.addOnClickedListener(self.list_elements[i].scroll_button, self.handler_scroll_up)
                 ac.setText(self.list_elements[i].scroll_button, "^")
-                ac.log(str(ac.drawBorder(self.list_elements[i].scroll_button, 1)))
                 ac.setBackgroundOpacity(self.list_elements[i].scroll_button, 0.9)
             else:
                 if i == (self.rows_nbr - 1):
-                    ac.log("Added 2")
                     ac.addOnClickedListener(self.list_elements[i].scroll_button, self.handler_scroll_down)
                     ac.setText(self.list_elements[i].scroll_button, "v")
                     ac.drawBorder(self.list_elements[i].scroll_button, 1)
                     ac.setBackgroundOpacity(self.list_elements[i].scroll_button, 0.9)
+
+            ac.log(str(i))
 
     def updateElement(self, indx, value=None, colour=None):
         if 0 <= indx < self.rows_nbr:
             if value is not None:
                 ac.setText(self.list_elements[indx].selection_button, value)
                 if indx == self.selection_indx and colour is None:
-                    ac.setFontColor(self.list_elements[indx].selection_button, *white)
+                    ac.setFontColor(self.list_elements[indx].selection_button, 0, 1, 0, 1)
                 else:
                     if colour is None:
                         ac.setFontColor(self.list_elements[indx].selection_button, *white)
@@ -467,7 +555,7 @@ class SelectionList:
             else:
                 self.updateElement(indx, value="")
 
-    def dropListDown(self, dummy, variable):
+    def dropListDown(self, *args):
         target_state_down = not self.state_down
 
         if not target_state_down:
@@ -493,9 +581,15 @@ class SelectionList:
         self.state_down = target_state_down
 
     def addElement(self, element):
+        if self.state_down:
+            self.dropListDown()
         self.elements.append(element)
-        self.list_elements = []
-        self.createSelectionButtons()
+
+    def setElements(self, elements):
+        if self.state_down:
+            self.dropListDown()
+        self.elements = elements
+        ac.log("C:" + str(self.elements))
 
 
 def read_reference_file(path):
@@ -537,28 +631,3 @@ def on_reference_select(*args):
     window_choose_reference.currently_used_index = window_choose_reference.reffile_index
     window_choose_reference.set_color(0, 1, 0)
     ac.log("[" + AppName + "]" + "INFO: Loaded " + filename + " with index " + str(window_choose_reference.reffile_index))
-
-
-def do_delta(time):
-    global last_ref_index
-    if last_ref_index >= len(reference_data):
-        last_ref_index = len(reference_data) - 1
-
-    if len(reference_data) == 0:
-        ac.setFontColor(line_delta, 1, 1, 1, 1)
-        ac.setText(line_delta, "+0.000")
-        return
-
-    while reference_data[last_ref_index][0] < ac.getCarState(0, acsys.CS.NormalizedSplinePosition):
-        if len(reference_data) > last_ref_index + 1:
-            last_ref_index += 1
-        else:
-            break
-
-    delta = time - reference_data[last_ref_index][1]
-    if delta > 0:
-        ac.setFontColor(line_delta, 1, 0, 0, 1)
-        ac.setText(line_delta, "+" + str(int(delta // 1000)) + "." + str(int(delta % 1000)))
-    else:
-        ac.setFontColor(line_delta, 0, 1, 0, 1)
-        ac.setText(line_delta, "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
