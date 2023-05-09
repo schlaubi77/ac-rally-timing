@@ -336,22 +336,24 @@ class ChooseReferenceWindow:
 
 class TimingWindow:
 
-    def __init__(self, name="Timing", x=200, y=300):
+    def __init__(self, name="Timing", x=170, y=110):
         self.name = name
         self.window = ac.newApp(name)
         ac.setSize(self.window, x, y)
         ac.setIconPosition(self.window, 16000, 16000)
 
         self.label_time = ac.addLabel(self.window, "0:00.000")
-        ac.setPosition(self.label_time, 30, 40)
+        ac.setPosition(self.label_time, 20, 25)
+        ac.setFontSize(self.label_time, 32)
 
         self.label_delta = ac.addLabel(self.window, "+0.000")
-        ac.setPosition(self.label_delta, 130, 40)
+        ac.setPosition(self.label_delta, 20, 60)
+        ac.setFontSize(self.label_delta, 32)
 
     def update(self):
         time = info.graphics.iCurrentTime
         self._do_delta(time)
-        ac.setText(self.label_time, lang["time"] + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
+        ac.setText(self.label_time, str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
 
     def _do_delta(self, time):
         global last_ref_index
