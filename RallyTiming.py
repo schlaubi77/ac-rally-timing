@@ -296,7 +296,7 @@ class ChooseReferenceWindow:
         ac.setValue(self.otherDriversBox, True)
         ac.addOnCheckBoxChanged(self.otherDriversBox, self.driverStateChangedFunction)
 
-        self.list = SelectionList(1, 20, 65, [str(p).replace(".refl", "") for p in os.listdir(self.path)], self.window, height=300, width=450)
+        self.list = SelectionList(1, 20, 65, [str(p) for p in os.listdir(self.path)], self.window, height=300, width=450)
 
     def carStateChanged(self, *args):
         self.showOtherCars = bool(args[1])
@@ -314,23 +314,6 @@ class ChooseReferenceWindow:
         for e in elements:
             if (self.showOtherDrivers or "_".join(e.split("_")[1:-1]) == driver) and (self.showOtherCars or e.split("_")[-1] == car):
                 show.append(e)
-        '''
-        if not self.showOtherCars:
-            car = ac.getCarName(0).replace("_", "-")
-            for e in elements:
-                if e.split("_")[-1] != car:
-                    elements.remove(e)
-                else:
-                    ac.log(e.split("_")[-1] + " == " + car)
-
-        if not self.showOtherDrivers:
-            driver = ac.getDriverName(0)
-            for e in elements:
-                if "_".join(e.split("_")[1:-1]) != driver:
-                    elements.remove(e)
-        
-        self.list.setElements(elements)
-        '''
         self.list.setElements(show)
 
 
@@ -353,6 +336,8 @@ class TimingWindow:
     def update(self):
         time = info.graphics.iCurrentTime
         self._do_delta(time)
+        if time == 0:
+            time = info.graphics.iLastTime
         ac.setText(self.label_time, str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
 
     def _do_delta(self, time):
@@ -404,7 +389,12 @@ class SelectionListElement:
         ac.setFontColor(self.list_handler.list_head, *white)
         ac.setFontColor(self.selection_button, *gray)
 
-        reference_data = read_reference_file(ReferenceFolder + "/" + ac.getText(self.selection_button) + ".refl")
+        disassembled_file_name = ac.getText(self.selection_button)
+        reassembled = disassembled_file_name[4:13] + "_"  # time
+        reassembled += disassembled_file_name[15:33].strip() + "_"  # driver
+        reassembled += disassembled_file_name[33:].replace(" ", "-")
+
+        reference_data = read_reference_file(ReferenceFolder + "/" + reassembled + ".refl")
         last_ref_index = 0
         # collapse list
         self.list_handler.dropListDown()
@@ -422,7 +412,7 @@ class SelectionList:
         self.pos_x = pos_x
         self.pos_y = pos_y
         self.rows_nbr = 0
-        self.elements = data
+        self.elements = []
         self.list_elements = []
         self.scroll_indx = 0
         self.selection_indx = -999
@@ -437,7 +427,7 @@ class SelectionList:
         ac.setSize(self.list_head, self.width, self.row_height)
         ac.setPosition(self.list_head, self.pos_x, self.pos_y)
         ac.setFontSize(self.list_head, round(15))
-        ac.setFontAlignment(self.list_head, "center")
+        ac.setFontAlignment(self.list_head, "left")
         ac.drawBorder(self.list_head, 1)
         ac.setBackgroundOpacity(self.list_head, 0.0)
         ac.setVisible(self.list_head, 1)
@@ -451,6 +441,9 @@ class SelectionList:
         ac.setBackgroundOpacity(self.head_button, 0.0)
         ac.addOnClickedListener(self.head_button, self.handler_drop_down)
         ac.setVisible(self.head_button, 1)
+
+        for e in data:
+            self.addElement(e)
 
         # labels with setups
         self.createSelectionButtons()
@@ -470,7 +463,7 @@ class SelectionList:
             ac.setSize(self.list_elements[i].selection_button, self.width, self.row_height)
             ac.setPosition(self.list_elements[i].selection_button, self.pos_x, pos_y)
             ac.setFontSize(self.list_elements[i].selection_button, round(15))
-            ac.setFontAlignment(self.list_elements[i].selection_button, "center")
+            ac.setFontAlignment(self.list_elements[i].selection_button, "left")
             ac.drawBorder(self.list_elements[i].selection_button, 0)
             ac.setBackgroundOpacity(self.list_elements[i].selection_button, 0.9)
 
@@ -493,8 +486,6 @@ class SelectionList:
                     ac.setText(self.list_elements[i].scroll_button, "v")
                     ac.drawBorder(self.list_elements[i].scroll_button, 1)
                     ac.setBackgroundOpacity(self.list_elements[i].scroll_button, 0.9)
-
-            ac.log(str(i))
 
     def updateElement(self, indx, value=None, colour=None):
         if 0 <= indx < self.rows_nbr:
@@ -585,13 +576,14 @@ class SelectionList:
     def addElement(self, element):
         if self.state_down:
             self.dropListDown()
-        self.elements.append(element)
+        self.elements.append(format_filename_for_list(element))
 
     def setElements(self, elements):
         if self.state_down:
             self.dropListDown()
-        self.elements = elements
-        ac.log("C:" + str(self.elements))
+        self.elements = []
+        for e in elements:
+            self.addElement(e)
 
 
 def read_reference_file(path):
@@ -601,7 +593,7 @@ def read_reference_file(path):
     ret = []
 
     for line in data:
-        if line.startswith("Car:") or line.startswith("Date:") or line.startswith("Driver:") or line.startswith("Time:"):
+        if line.startswith("Car:") or line.startswith("Date:") or line.startswith("Driver:") or line.startswith("Time:") or line.startswith("#"):
             continue
         spline, tim = line.split(";")
         ret.append((float(spline), int(tim)))
@@ -611,10 +603,15 @@ def read_reference_file(path):
 
 def write_reference_file(origin_data, path, time):
     filename = str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3) + "_" + ac.getDriverName(0) + "_" + ac.getCarName(0).replace("_", "-") + ".refl"
-    write = ["Car: " + ac.getCarName(0),
-             "\nDate: " + datetime.now().strftime("%d-%m-%Y, %H:%M:%S"),
-             "\nDriver: " + ac.getDriverName(0),
-             "\nTime: " + str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3) + "\n"]
+    weather = get_weather()
+    write = ["#Car: " + ac.getCarName(0),
+             "#Date: " + datetime.now().strftime("%d-%m-%Y, %H:%M:%S"),
+             "\n#Driver: " + ac.getDriverName(0),
+             "\n#Time: " + str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3),
+             "\n#Weather: " + weather["WEATHER"]["NAME"],
+             "\n#Temperature Road: " + weather["TEMPERATURE"]["ROAD"],
+             "\n#Temperature Air: " + weather["TEMPERATURE"]["AMBIENT"],
+             "\n#Wind: " + weather["WIND"]["SPEED_KMH_MAX"] + "km/h from " + weather["WIND"]["DIRECTION_DEG"] + "deg\n"]
     for data in origin_data:
         write.append(str(data[0]) + ";" + str(data[1]) + "\n")
     with open(path + "/" + filename, "w") as file:
@@ -624,12 +621,30 @@ def write_reference_file(origin_data, path, time):
     window_choose_reference.list.addElement(filename.replace(".refl", ""))
 
 
-def on_reference_select(*args):
-    global reference_data
-    if len(window_choose_reference.reffiles) == 0:
-        return
-    filename = window_choose_reference.reffiles[window_choose_reference.reffile_index]
-    reference_data = read_reference_file(ReferenceFolder + "/" + filename)
-    window_choose_reference.currently_used_index = window_choose_reference.reffile_index
-    window_choose_reference.set_color(0, 1, 0)
-    ac.log("[" + AppName + "]" + "INFO: Loaded " + filename + " with index " + str(window_choose_reference.reffile_index))
+def format_filename_for_list(name):
+    splitted = name.split("_")
+    concated = " " * 4 + splitted[0] + " " * 2  # time
+    concated += "_".join(splitted[1:-1]).ljust(18)  # padded name
+    concated += splitted[-1].replace(".refl", "").replace("-", " ")  # car name
+    return concated
+
+
+def get_weather():
+    data = {}
+    log_path = os.path.join(os.environ['USERPROFILE'], 'documents', 'Assetto Corsa', 'logs', 'log.txt')
+    with open(log_path, 'r') as file:
+        stop = False
+        for line in file:
+            if stop and line.startswith('['):
+                break
+            line = line.strip()
+            if line.startswith('[') and line.endswith(']'):
+                key = line[1:-1]
+                if key in ['TEMPERATURE', 'WEATHER', 'WIND']:
+                    data[key] = {}
+                    if len(data) == 3:
+                        stop = True
+            elif '=' in line and key in ['TEMPERATURE', 'WEATHER', 'WIND']:
+                sub_key, value = line.split('=')
+                data[key][sub_key] = value
+    return data
