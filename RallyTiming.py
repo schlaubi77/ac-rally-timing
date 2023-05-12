@@ -37,6 +37,7 @@ ShowRemainingDistance = config.getboolean("RallyTiming", "showremainingdistance"
 ShowFuel = config.getboolean("RallyTiming", "showfuel")
 DebugMode = config.getboolean("RallyTiming", "debugmode")
 Language = config.get("RallyTiming", "language")
+MaxRefFiles = config.getint("RallyTiming", "maximumreffiles")
 
 with open("apps/python/RallyTiming/config/lang.json", "r", encoding="utf-8") as file:
     lang = json.load(file)
@@ -179,6 +180,7 @@ def acUpdate(deltaT):
 
     if (Status == 3 or Status == 5) and LapCount > LapCountTracker:
         write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
+        fix_reffile_amount_and_choose_fastest()
         Status = 4 # Over finish
         if FinishSpline == 0:
             FinishSpline = ActualSpline
@@ -585,6 +587,12 @@ class SelectionList:
         for e in elements:
             self.addElement(e)
 
+    def select(self, element):
+        if self.state_down:
+            self.dropListDown()
+        self.selection_indx = self.elements.index(element)
+        ac.setText(self.list_head, element)
+
 
 def read_reference_file(path):
     with open(path, "r") as file:
@@ -648,3 +656,32 @@ def get_weather():
                 sub_key, value = line.split('=')
                 data[key][sub_key] = value
     return data
+
+
+def fix_reffile_amount_and_choose_fastest():
+    global reference_data
+
+    fastest_time = 2000000000
+    fastest_file = 0
+    num_files = 0
+    slowest_time = 0
+    slowest_file = ""
+    for e in window_choose_reference.list.elements:
+        time = 60000 * int(e[4:6]) + 1000 * int(e[7:9]) + int(e[10:13])
+        # slowest
+        if MaxRefFiles != 0 and e[15:33].strip() == ac.getDriverName(0) and e[33:].replace(" ", "-") == ac.getCarName(0).replace("_", "-"):
+            if time > slowest_time:
+                slowest_time = time
+                slowest_file = e[4:13] + "_" + e[15:33].strip() + "_" + e[33:].replace(" ", "-")
+                num_files += 1
+        # fastest
+        if time < fastest_time:
+            fastest_time = time
+            fastest_file = e[4:13] + "_" + e[15:33].strip() + "_" + e[33:].replace(" ", "-")
+    if num_files > MaxRefFiles != 0:
+        os.remove(ReferenceFolder + "/" + slowest_file + ".refl")
+        window_choose_reference.refilterList()
+
+    reference_data = read_reference_file(ReferenceFolder + "/" + fastest_file + ".refl")
+    window_choose_reference.list.select(format_filename_for_list(fastest_file))
+
