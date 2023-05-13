@@ -1,5 +1,5 @@
 AC Rally timing app (schlaubi77 & wimdes)
-Version 1.3 (../05/2023)
+Version 1.3 BETA 1 (../05/2023)
 
 The app has 2 main functions: start position verification and delta timing.
 
