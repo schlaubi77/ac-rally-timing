@@ -113,7 +113,7 @@ ac.console (AppName + ": Track Name: " + TrackName)
 def acMain(ac_version):
     global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow
 
-    appWindow = ac.newApp(AppName)
+    appWindow = ac.newApp(AppName + ": Main")
 
     if not DebugMode:
         if not ShowFuel:
@@ -127,7 +127,7 @@ def acMain(ac_version):
     ac.setIconPosition(appWindow, 0, -10000)
     ac.setBackgroundOpacity(appWindow, 0.1)
 
-    window_choose_reference = ChooseReferenceWindow("Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
+    window_choose_reference = ChooseReferenceWindow("Rally Timing: Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
     window_timing = TimingWindow()
 
     lines = []
@@ -321,7 +321,7 @@ class ChooseReferenceWindow:
 
 class TimingWindow:
 
-    def __init__(self, name="Timing", x=170, y=110):
+    def __init__(self, name="Rally Timing: Delta", x=170, y=110):
         self.name = name
         self.window = ac.newApp(name)
         ac.setSize(self.window, x, y)
@@ -615,8 +615,9 @@ def write_reference_file(origin_data, path, time):
     write = ["#Car: " + ac.getCarName(0),
              "\n#Date: " + datetime.now().strftime("%d-%m-%Y, %H:%M:%S"),
              "\n#Driver: " + ac.getDriverName(0),
-             "\n#Time: " + str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3),
+             "\n#Stage time: " + str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3),
              "\n#Speed on startline: {:.2f}".format(StartSpeed) + " km/h",
+             "\n#Comments: ",
              "\n#Weather: " + weather["WEATHER"]["NAME"],
              "\n#Temperature Road: " + weather["TEMPERATURE"]["ROAD"],
              "\n#Temperature Air: " + weather["TEMPERATURE"]["AMBIENT"],
