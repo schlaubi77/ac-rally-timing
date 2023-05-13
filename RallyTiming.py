@@ -1,7 +1,7 @@
 #####################################################
-# Rally Timing v1.3                                 #
+# Rally Timing v1.3 BETA 1                          #
 #                                                   #
-# Copyright wimdes & schlaubi77 9/04/2023           #
+# Copyright wimdes & schlaubi77 13/05/2023          #
 # Released under the terms of GPLv3                 #
 # thx to Hecrer, PleaseStopThis, KubaV383, GPT-4    #
 #                                                   #
@@ -9,7 +9,7 @@
 # https://bit.ly/3HCELP3                            #
 #                                                   #
 # changelog:                                        #
-# v1.3 added a delta functionality                  #
+# v1.3 added delta functionality                    #
 # v1.2 settings configurable in ContentManager GUI  #
 # v1.1 add multi language support                   #
 #                                                   #
@@ -18,8 +18,8 @@
 # cleanup code                                      #
 # reset track data button                           #
 # add replay detection                              #
-# add linear bar
-#
+# add linear bar                                    #
+#                                                   #
 # doDelta to binary search, interval for ref file creation
 #####################################################
 from datetime import datetime
@@ -613,9 +613,10 @@ def write_reference_file(origin_data, path, time):
     filename = str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3) + "_" + ac.getDriverName(0) + "_" + ac.getCarName(0).replace("_", "-") + ".refl"
     weather = get_weather()
     write = ["#Car: " + ac.getCarName(0),
-             "#Date: " + datetime.now().strftime("%d-%m-%Y, %H:%M:%S"),
+             "\n#Date: " + datetime.now().strftime("%d-%m-%Y, %H:%M:%S"),
              "\n#Driver: " + ac.getDriverName(0),
              "\n#Time: " + str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3),
+             "\n#Speed on startline: {:.2f}".format(StartSpeed) + " km/h",
              "\n#Weather: " + weather["WEATHER"]["NAME"],
              "\n#Temperature Road: " + weather["TEMPERATURE"]["ROAD"],
              "\n#Temperature Air: " + weather["TEMPERATURE"]["AMBIENT"],
