@@ -1,7 +1,7 @@
 #####################################################
-# Rally Timing v1.3 BETA 1                          #
+# Rally Timing v1.3 BETA 3                          #
 #                                                   #
-# Copyright wimdes & schlaubi77 13/05/2023          #
+# Copyright wimdes & schlaubi77 30/05/2023          #
 # Released under the terms of GPLv3                 #
 # thx to Hecrer, PleaseStopThis, KubaV383, GPT-4    #
 #                                                   #
@@ -22,6 +22,7 @@
 #                                                   #
 # doDelta to binary search, interval for ref file creation
 #####################################################
+
 from datetime import datetime
 import sys, ac, acsys, os, json, math, configparser
 from sim_info import info
@@ -41,8 +42,8 @@ MaxRefFiles = config.getint("RallyTiming", "maximumreffiles")
 
 with open("apps/python/RallyTiming/config/lang.json", "r", encoding="utf-8") as file:
     lang = json.load(file)
-
 lang = lang[str(Language)]
+
 ###### Default variables 
 AppName = "Rally Timing"
 appWindow = 0
@@ -56,11 +57,13 @@ StartPositionAccuracy = 0
 Meter = 1 / SplineLength
 SpeedTrapValue = 0
 StartChecked = False
+reference_stage_time_int = 0
+CheckFastestTime = False
 
 ###### Determine track name & layout
-if ac.getTrackConfiguration(0) != "": 
+if ac.getTrackConfiguration(0) != "":
     TrackName = (ac.getTrackName(0) + "/" + ac.getTrackConfiguration(0))
-else: 
+else:
     TrackName = ac.getTrackName(0)
 
 ###### Reference Laps
@@ -102,22 +105,22 @@ gray = (0.75, 0.75, 0.75, 1.0)
 line1, line2, line3, line4, line5, line6 = [0 for i in range(6)]
 
 ###### write some stuff into log and console
-ac.console (AppName + ": Track Name: " + TrackName)
-#ac.console (AppName + ": Start Spline: {:.10f}".format(StartSpline))
-#ac.console (AppName + ": Finish Spline: {:.10f}".format(FinishSpline))
-#ac.console (AppName + ": Meter: {:.10f}".format(Meter))
-#ac.console (AppName + ": Centimeter: {:.10f}".format(Meter / 100))
-#ac.log(AppName + " test entry")
+ac.console(AppName + ": Track Name: " + TrackName)
+# ac.console (AppName + ": Start Spline: {:.10f}".format(StartSpline))
+# ac.console (AppName + ": Finish Spline: {:.10f}".format(FinishSpline))
+# ac.console (AppName + ": Meter: {:.10f}".format(Meter))
+# ac.console (AppName + ": Centimeter: {:.10f}".format(Meter / 100))
+# ac.log(AppName + " test entry")
 
 
 def acMain(ac_version):
     global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow
 
-    appWindow = ac.newApp(AppName + ": Main")
+    appWindow = ac.newApp(AppName + " - Main")
 
     if not DebugMode:
         if not ShowFuel:
-            ac.setSize(appWindow, 373, 92)    #default is 373,92
+            ac.setSize(appWindow, 373, 92)   # default is 373,92
         else:
             ac.setSize(appWindow, 373, 112)
     else:
@@ -127,7 +130,7 @@ def acMain(ac_version):
     ac.setIconPosition(appWindow, 0, -10000)
     ac.setBackgroundOpacity(appWindow, 0.1)
 
-    window_choose_reference = ChooseReferenceWindow("Rally Timing: Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
+    window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
     window_timing = TimingWindow()
 
     lines = []
@@ -138,50 +141,52 @@ def acMain(ac_version):
         ac.setFontSize(line, 20)
     line1, line2, line3, line4, line5, line6 = lines
 
+    fix_reffile_amount_and_choose_fastest()
+
     return AppName
 
 
 def acUpdate(deltaT):
     global line1, line2, line3, line4, line5, line6
     global Status, ActualSpline, ActualSpeed, StartSpline, FinishSpline, StartSpeed, StartDistance, LastSessionTime, StartPositionAccuracy, LapCountTracker
-    global SpeedTrapValue, StartChecked, data_collected, last_ref_index
+    global SpeedTrapValue, StartChecked, data_collected, last_ref_index, CheckFastestTime
 
     ActualSpline = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
-    ActualSpeed = ac.getCarState(0, acsys.CS.SpeedKMH) 
+    ActualSpeed = ac.getCarState(0, acsys.CS.SpeedKMH)
     StartDistance = (StartSpline - ac.getCarState(0, acsys.CS.NormalizedSplinePosition)) * SplineLength
     FinishDistance = (FinishSpline - ac.getCarState(0, acsys.CS.NormalizedSplinePosition)) * SplineLength
-    LapTime = ac.getCarState(0, acsys.CS.LapTime) 
+    LapTime = ac.getCarState(0, acsys.CS.LapTime)
     LapCount = ac.getCarState(0, acsys.CS.LapCount)
     ac.addOnChatMessageListener(appWindow, chat_message_listener)
 
     if Status == 0 and LapTime > 0:
         StartSpline = ActualSpline
-        Status = 1 # Start Found
+        Status = 1  # Start Found
         StartFinishSplines[TrackName]["StartSpline"] = ActualSpline
         with open(StartFinishJson, "w") as file:
             json.dump(StartFinishSplines, file, indent=4)
 
     if Status == 1 and ActualSpline < StartSpline:
-        Status = 2 # Drive to start
+        Status = 2  # Drive to start
 
     if Status == 2 and 0 < StartDistance < MaxStartLineDistance and ActualSpeed < 0.05:
-        Status = 6 # stopped at startline
+        Status = 6  # stopped at startline
         ac.setFontColor(line1, 0, 1, 0, 1)
 
     if Status == 6 and StartDistance > MaxStartLineDistance:
         ac.setFontColor(line1, 1, 1, 1, 1)
-        Status = 2 # Drive back to start
+        Status = 2  # Drive back to start
 
     if (Status == 2 or Status == 6) and ActualSpline > StartSpline:
         StartSpeed = ActualSpeed
         StartPositionAccuracy = abs((StartSpline - ActualSpline) * SplineLength)
         ac.setFontColor(line1, 1, 1, 1, 1)
-        Status = 3 # In stage
+        Status = 3  # In stage
 
     if (Status == 3 or Status == 5) and LapCount > LapCountTracker:
         write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
-        fix_reffile_amount_and_choose_fastest()
-        Status = 4 # Over finish
+        CheckFastestTime = True
+        Status = 4  # Over finish
         if FinishSpline == 0:
             FinishSpline = ActualSpline
             TrueLength = (FinishSpline-StartSpline) * SplineLength
@@ -192,18 +197,18 @@ def acUpdate(deltaT):
 
     if OnServer:
         if Status == 3 and SpeedTrapValue > StartSpeedLimit:
-            Status = 5 # START FAIL - ONLINE LAP WILL BE INVALIDATED
+            Status = 5  # START FAIL - ONLINE LAP WILL BE INVALIDATED
             StatusList[4] = lang["phase.invalidatedserver"]
             ac.setFontColor(line1, 1, 0, 0, 1)
-            ac.console (AppName + ": Local StartSpeed: {:.2f}".format(StartSpeed) + " / Server StartSpeed: {:.2f}".format(SpeedTrapValue))
+            ac.console(AppName + ": Local StartSpeed: {:.2f}".format(StartSpeed) + " / Server StartSpeed: {:.2f}".format(SpeedTrapValue))
             StartChecked = True
         if Status == 3 and SpeedTrapValue <= StartSpeedLimit and not StartChecked:
             if SpeedTrapValue != 0:
-                ac.console (AppName + ": Local StartSpeed: {:.2f}".format(StartSpeed) + " / Server StartSpeed: {:.2f}".format(SpeedTrapValue))
+                ac.console(AppName + ": Local StartSpeed: {:.2f}".format(StartSpeed) + " / Server StartSpeed: {:.2f}".format(SpeedTrapValue))
                 StartChecked = True
     else:
         if Status == 3 and StartSpeed > StartSpeedLimit:
-            Status = 5 # START FAIL
+            Status = 5  # START FAIL
             ac.setFontColor(line1, 1, 0, 0, 1)
 
     if (Status == 3 or Status == 4 or Status == 5) and ActualSpline < StartSpline:
@@ -218,12 +223,15 @@ def acUpdate(deltaT):
         StatusList[4] = lang["phase.finished"]
 
     if Status == 2 or Status == 6:
-            if ActualSpline == 0:
-                ac.setText(line3, lang["startdist"] + "{:.2f}".format(XYStartDistance()) + " m " + lang["inbrack.estimated"])
-            else:
-                ac.setText(line3, lang["startdist"] + "{:.2f}".format(StartDistance) + " m")
-            if ShowStartSpeed:
-                ac.setText(line2, lang["startspeedlimit"] + "{}".format(StartSpeedLimit) + " km/h")
+        if CheckFastestTime:
+            fix_reffile_amount_and_choose_fastest()
+            CheckFastestTime = False
+        if ActualSpline == 0:
+            ac.setText(line3, lang["startdist"] + "{:.2f}".format(XYStartDistance()) + " m " + lang["inbrack.estimated"])
+        else:
+            ac.setText(line3, lang["startdist"] + "{:.2f}".format(StartDistance) + " m")
+        if ShowStartSpeed:
+            ac.setText(line2, lang["startspeedlimit"] + "{}".format(StartSpeedLimit) + " km/h")
 
     if Status == 4:
         ac.setText(line3, "")
@@ -232,19 +240,20 @@ def acUpdate(deltaT):
         time = info.graphics.iCurrentTime
 
     if Status == 3 or Status == 5:
-            if ShowStartSpeed:
-                if OnServer:
-                    ac.setText(line2, lang["startspeed"] + "{:.2f}".format(SpeedTrapValue) + " km/h " + lang["inbrack.server"])
-                else:
-                    ac.setText(line2, lang["startspeed"] + "{:.2f}".format(StartSpeed) + " km/h")
-            if ShowRemainingDistance:
-                if FinishSpline != 0:
-                    ac.setText(line3, lang["finishdist"] + "{:.0f}".format(FinishDistance) + " m")
-                else:
-                    ac.setText(line3, lang["finishdist"] + "{:.0f}".format((1 - ac.getCarState(0, acsys.CS.NormalizedSplinePosition)) * SplineLength) + " m " + lang["inbrack.estimated"])
+        if ShowStartSpeed:
+            if OnServer:
+                ac.setText(line2, lang["startspeed"] + "{:.2f}".format(SpeedTrapValue) + " km/h " + lang["inbrack.server"])
             else:
-                ac.setText(line3, "")
-            data_collected.append((ActualSpline, time))
+                ac.setText(line2, lang["startspeed"] + "{:.2f}".format(StartSpeed) + " km/h")
+        if ShowRemainingDistance:
+            if FinishSpline != 0:
+                ac.setText(line3, lang["finishdist"] + "{:.0f}".format(FinishDistance) + " m")
+            else:
+                ac.setText(line3, lang["finishdist"] + "{:.0f}".format((1 - ac.getCarState(0, acsys.CS.NormalizedSplinePosition)) * SplineLength) + " m " + lang["inbrack.estimated"])
+        else:
+            ac.setText(line3, "")
+
+        data_collected.append((ActualSpline, time))
 
     ac.setText(line1, StatusList[Status])
 
@@ -254,7 +263,7 @@ def acUpdate(deltaT):
         ac.setText(line4, lang["fuel"] + "{:.1f}".format(info.physics.fuel) + " l")
 
     if DebugMode:
-        ac.setText(line4, "StartPositionAccuracy: {:.2f}".format(StartPositionAccuracy))
+        ac.setText(line4, "StartPositionAccuracy: {:.2f}".format(StartPositionAccuracy) + "  Status: {}".format(Status) + "  StageTimeRef: {}".format(reference_stage_time_int))
         ac.setText(line5, "ActualSpline: {:.5f}".format(ActualSpline) + "  StartSpline: {:.5f}".format(StartSpline) + "  FinishSpline: {:.5f}".format(FinishSpline))
         ac.setText(line6, "XYStartDistance: {:.2f}".format(XYStartDistance()) + "  LapCount: {}".format(LapCount) + "  SpeedTrapValue: {}".format(SpeedTrapValue))
 
@@ -321,26 +330,48 @@ class ChooseReferenceWindow:
 
 class TimingWindow:
 
-    def __init__(self, name="Rally Timing: Delta", x=170, y=110):
+    def __init__(self, name="Rally Timing - Delta", x=200, y=90):
         self.name = name
         self.window = ac.newApp(name)
+        ac.setTitle(self.window, "")
         ac.setSize(self.window, x, y)
+        ac.drawBorder(self.window, 0)
+        ac.setBackgroundOpacity(self.window, 0.1)
         ac.setIconPosition(self.window, 16000, 16000)
 
-        self.label_time = ac.addLabel(self.window, "0:00.000")
-        ac.setPosition(self.label_time, 20, 25)
-        ac.setFontSize(self.label_time, 32)
+        self.label_ref = ac.addLabel(self.window, "Target:    (none)")
+        ac.setPosition(self.label_ref, 20, 5)
+        ac.setFontSize(self.label_ref, 20)
 
-        self.label_delta = ac.addLabel(self.window, "+0.000")
-        ac.setPosition(self.label_delta, 20, 60)
-        ac.setFontSize(self.label_delta, 32)
+        self.label_time = ac.addLabel(self.window, "Current:  00:00.000")
+        ac.setPosition(self.label_time, 20, 30)
+        ac.setFontSize(self.label_time, 20)
+
+        self.label_delta = ac.addLabel(self.window, "Delta:   +0.000")
+        ac.setPosition(self.label_delta, 20, 55)
+        ac.setFontSize(self.label_delta, 20)
 
     def update(self):
-        time = info.graphics.iCurrentTime
-        self._do_delta(time)
-        if time == 0:
+        if Status == 0 or Status == 1 or Status == 2 or Status == 6:
+            ac.setText(self.label_time, "Current:  00:00.000")
+            ac.setFontColor(self.label_delta, 1, 1, 1, 1)
+            ac.setText(self.label_delta, "Delta:    +0.000")
+
+        if Status == 3 or Status == 5:
+            time = info.graphics.iCurrentTime
+            self._do_delta(time)
+            ac.setText(self.label_time, "Current: " + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
+
+        if Status == 4:
             time = info.graphics.iLastTime
-        ac.setText(self.label_time, str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
+            delta = time - reference_stage_time_int
+            ac.setText(self.label_time, "Current: " + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
+            if delta > 0:
+                ac.setFontColor(self.label_delta, 1, 0, 0, 1)
+                ac.setText(self.label_delta, "Delta:     " + "+" + str(int(delta // 1000)) + "." + str(int(delta % 1000)))
+            else:
+                ac.setFontColor(self.label_delta, 0, 1, 0, 1)
+                ac.setText(self.label_delta, "Delta:     " + "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
 
     def _do_delta(self, time):
         global last_ref_index
@@ -349,7 +380,7 @@ class TimingWindow:
 
         if len(reference_data) == 0:
             ac.setFontColor(self.label_delta, 1, 1, 1, 1)
-            ac.setText(self.label_delta, "+0.000")
+            ac.setText(self.label_delta, "Delta:   +0.000")
             return
 
         while reference_data[last_ref_index][0] < ac.getCarState(0, acsys.CS.NormalizedSplinePosition):
@@ -361,10 +392,10 @@ class TimingWindow:
         delta = time - reference_data[last_ref_index][1]
         if delta > 0:
             ac.setFontColor(self.label_delta, 1, 0, 0, 1)
-            ac.setText(self.label_delta, "+" + str(int(delta // 1000)) + "." + str(int(delta % 1000)))
+            ac.setText(self.label_delta, "Delta:     " + "+" + str(int(delta // 1000)) + "." + str(int(delta % 1000)))
         else:
             ac.setFontColor(self.label_delta, 0, 1, 0, 1)
-            ac.setText(self.label_delta, "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
+            ac.setText(self.label_delta, "Delta:     " + "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
 
 
 class SelectionListElement:
@@ -586,6 +617,10 @@ class SelectionList:
         self.elements = []
         for e in elements:
             self.addElement(e)
+        try:
+            self.selection_indx = self.elements.index(ac.getText(self.list_head))
+        except ValueError:
+            self.selection_indx = -999
 
     def select(self, element):
         if self.state_down:
@@ -595,6 +630,7 @@ class SelectionList:
 
 
 def read_reference_file(path):
+    global reference_stage_time_int
     with open(path, "r") as file:
         data = file.readlines()
 
@@ -605,6 +641,14 @@ def read_reference_file(path):
             continue
         spline, tim = line.split(";")
         ret.append((float(spline), int(tim)))
+
+    # get stage time from filename
+    filename = os.path.basename(path)  # get filename from path
+    basename, ext = os.path.splitext(filename)  # split filename into basename and extension
+    stage_time_str, driver, car = basename.split("_")  # split basename into stage time, driver and car
+    reference_stage_time_int = int(stage_time_str[:2]) * 60000 + int(stage_time_str[3:5]) * 1000 + int(stage_time_str[6:])  # convert stage time string to integer
+
+    ac.setText(window_timing.label_ref, "Target:   " + str(int(reference_stage_time_int // 60000)).zfill(2) + ":" + str(int((reference_stage_time_int % 60000) // 1000)).zfill(2) + "." + str(int(reference_stage_time_int % 1000)).zfill(3))
 
     return ret
 
@@ -668,22 +712,30 @@ def fix_reffile_amount_and_choose_fastest():
     num_files = 0
     slowest_time = 0
     slowest_file = ""
+    car = ac.getCarName(0).replace("_", "-")  # get current car name
+    driver = ac.getDriverName(0)  # get current driver name
     for e in window_choose_reference.list.elements:
         time = 60000 * int(e[4:6]) + 1000 * int(e[7:9]) + int(e[10:13])
         # slowest
-        if MaxRefFiles != 0 and e[15:33].strip() == ac.getDriverName(0) and e[33:].replace(" ", "-") == ac.getCarName(0).replace("_", "-"):
+        if MaxRefFiles != 0 and e[15:33].strip() == driver and e[33:].replace(" ", "-") == car:
             if time > slowest_time:
                 slowest_time = time
                 slowest_file = e[4:13] + "_" + e[15:33].strip() + "_" + e[33:].replace(" ", "-")
                 num_files += 1
         # fastest
-        if time < fastest_time:
+        if time < fastest_time and e[15:33].strip() == driver and e[33:].replace(" ", "-") == car:  # add condition to match current car and player name
             fastest_time = time
             fastest_file = e[4:13] + "_" + e[15:33].strip() + "_" + e[33:].replace(" ", "-")
-    if num_files > MaxRefFiles != 0:
+
+    if num_files > MaxRefFiles and MaxRefFiles != 0:
         os.remove(ReferenceFolder + "/" + slowest_file + ".refl")
         window_choose_reference.refilterList()
 
-    reference_data = read_reference_file(ReferenceFolder + "/" + fastest_file + ".refl")
-    window_choose_reference.list.select(format_filename_for_list(fastest_file))
+        # delete more if there are too many
+        if num_files - 1 > MaxRefFiles:
+            fix_reffile_amount_and_choose_fastest()
+
+    if fastest_file != 0:
+        reference_data = read_reference_file(ReferenceFolder + "/" + fastest_file + ".refl")
+        window_choose_reference.list.select(format_filename_for_list(fastest_file))
 
