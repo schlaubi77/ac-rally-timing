@@ -22,7 +22,7 @@
 # add replay detection                              #
 # add linear bar                                    #
 #                                                   #
-# doDelta to binary search, interval for ref file creation
+# interval for ref file creation                    #
 #####################################################
 
 from datetime import datetime
@@ -223,6 +223,9 @@ def acUpdate(deltaT):
         SpeedTrapValue = 0
         StartChecked = False
         StatusList[4] = lang["phase.finished"]
+        if CheckFastestTime:
+            fix_reffile_amount_and_choose_fastest()
+            CheckFastestTime = False
 
     if Status == 2 or Status == 6:
         if CheckFastestTime:
@@ -260,7 +263,7 @@ def acUpdate(deltaT):
     ac.setText(line1, StatusList[Status])
 
     window_timing.update()
-
+    ac.log(str(CheckFastestTime) + ";" + str(Status))
     if ShowFuel:
         ac.setText(line4, lang["fuel"] + "{:.1f}".format(info.physics.fuel) + " l")
 
@@ -376,28 +379,30 @@ class TimingWindow:
                 ac.setText(self.label_delta, "Delta:     " + "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
 
     def _do_delta(self, time):
-        global last_ref_index
-        if last_ref_index >= len(reference_data):
-            last_ref_index = len(reference_data) - 1
-
         if len(reference_data) == 0:
             ac.setFontColor(self.label_delta, 1, 1, 1, 1)
             ac.setText(self.label_delta, "Delta:   +0.000")
             return
 
-        while reference_data[last_ref_index][0] < ac.getCarState(0, acsys.CS.NormalizedSplinePosition):
-            if len(reference_data) > last_ref_index + 1:
-                last_ref_index += 1
-            else:
-                break
-
-        delta = time - reference_data[last_ref_index][1]
+        delta = time - searchNearest(reference_data, ac.getCarState(0, acsys.CS.NormalizedSplinePosition), 0, len(reference_data) - 1)
         if delta > 0:
             ac.setFontColor(self.label_delta, 1, 0, 0, 1)
             ac.setText(self.label_delta, "Delta:     " + "+" + str(int(delta // 1000)) + "." + str(int(delta % 1000)))
         else:
             ac.setFontColor(self.label_delta, 0, 1, 0, 1)
             ac.setText(self.label_delta, "Delta:     " + "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
+
+
+def searchNearest(list, searched, left, right):
+    if left == right:
+        return list[left][1]
+    if left > right:
+        return list[right][1]
+    middle = (left + right) // 2
+    if list[middle][0] < searched:
+        return searchNearest(list, searched, middle + 1, right)
+    else:
+        return searchNearest(list, searched, left, middle - 1)
 
 
 class SelectionListElement:
