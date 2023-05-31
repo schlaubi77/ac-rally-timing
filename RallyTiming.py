@@ -1,5 +1,5 @@
 #####################################################
-# Rally Timing v1.3 BETA 3                          #
+# Rally Timing v1.32                                #
 #                                                   #
 # Copyright wimdes & schlaubi77 30/05/2023          #
 # Released under the terms of GPLv3                 #
@@ -9,6 +9,8 @@
 # https://bit.ly/3HCELP3                            #
 #                                                   #
 # changelog:                                        #
+# v1.32 fix for sim_info not loading                #
+# v1.31 some small fixes                            #
 # v1.3 added delta functionality                    #
 # v1.2 settings configurable in ContentManager GUI  #
 # v1.1 add multi language support                   #
@@ -25,7 +27,7 @@
 
 from datetime import datetime
 import sys, ac, acsys, os, json, math, configparser
-from sim_info import info
+from libs.sim_info import info
 
 config = configparser.ConfigParser(inline_comment_prefixes=';')
 config.read("apps/python/RallyTiming/config/config.ini")
