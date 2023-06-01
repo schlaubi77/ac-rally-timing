@@ -1,7 +1,7 @@
 #####################################################
-# Rally Timing v1.32                                #
+# Rally Timing v1.33                                #
 #                                                   #
-# Copyright wimdes & schlaubi77 30/05/2023          #
+# Copyright wimdes & schlaubi77 01/06/2023          #
 # Released under the terms of GPLv3                 #
 # thx to Hecrer, PleaseStopThis, KubaV383, GPT-4    #
 #                                                   #
@@ -9,6 +9,7 @@
 # https://bit.ly/3HCELP3                            #
 #                                                   #
 # changelog:                                        #
+# v1.33 delta algorithm, some code cleanup          #
 # v1.32 fix for sim_info not loading                #
 # v1.31 some small fixes                            #
 # v1.3 added delta functionality                    #
@@ -101,8 +102,10 @@ with open(StartFinishJson, "r") as file:
         FinishSpline = 0
         StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 0, "TrueLength": 0}
 
-white = (1.0, 1.0, 1.0, 1.0)
-gray = (0.75, 0.75, 0.75, 1.0)
+white = (1, 1, 1, 1)
+gray = (0.75, 0.75, 0.75, 1)
+green = (0, 1, 0, 1)
+red = (1, 0, 0, 1)
 
 line1, line2, line3, line4, line5, line6 = [0 for i in range(6)]
 
@@ -173,19 +176,19 @@ def acUpdate(deltaT):
 
     if Status == 2 and 0 < StartDistance < MaxStartLineDistance and ActualSpeed < 0.05:
         Status = 6  # stopped at startline
-        ac.setFontColor(line1, 0, 1, 0, 1)
+        ac.setFontColor(line1, *green)
 
     if Status == 6 and StartDistance > MaxStartLineDistance:
-        ac.setFontColor(line1, 1, 1, 1, 1)
+        ac.setFontColor(line1, *white)
         Status = 2  # Drive back to start
 
-    if (Status == 2 or Status == 6) and ActualSpline > StartSpline:
+    if Status in (2, 6) and ActualSpline > StartSpline:
         StartSpeed = ActualSpeed
         StartPositionAccuracy = abs((StartSpline - ActualSpline) * SplineLength)
-        ac.setFontColor(line1, 1, 1, 1, 1)
+        ac.setFontColor(line1, *white)
         Status = 3  # In stage
 
-    if (Status == 3 or Status == 5) and LapCount > LapCountTracker:
+    if Status in (3, 5) and LapCount > LapCountTracker:
         write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
         CheckFastestTime = True
         Status = 4  # Over finish
@@ -201,7 +204,7 @@ def acUpdate(deltaT):
         if Status == 3 and SpeedTrapValue > StartSpeedLimit:
             Status = 5  # START FAIL - ONLINE LAP WILL BE INVALIDATED
             StatusList[4] = lang["phase.invalidatedserver"]
-            ac.setFontColor(line1, 1, 0, 0, 1)
+            ac.setFontColor(line1, *red)
             ac.console(AppName + ": Local StartSpeed: {:.2f}".format(StartSpeed) + " / Server StartSpeed: {:.2f}".format(SpeedTrapValue))
             StartChecked = True
         if Status == 3 and SpeedTrapValue <= StartSpeedLimit and not StartChecked:
@@ -211,14 +214,14 @@ def acUpdate(deltaT):
     else:
         if Status == 3 and StartSpeed > StartSpeedLimit:
             Status = 5  # START FAIL
-            ac.setFontColor(line1, 1, 0, 0, 1)
+            ac.setFontColor(line1, *red)
 
-    if (Status == 3 or Status == 4 or Status == 5) and ActualSpline < StartSpline:
+    if Status in (3, 4, 5) and ActualSpline < StartSpline:
         data_collected = []
         last_ref_index = 0
         Status = 2  # Drive to start
         LapCountTracker = LapCount
-        ac.setFontColor(line1, 1, 1, 1, 1)
+        ac.setFontColor(line1, *white)
         StartSpeed = 0
         SpeedTrapValue = 0
         StartChecked = False
@@ -227,7 +230,7 @@ def acUpdate(deltaT):
             fix_reffile_amount_and_choose_fastest()
             CheckFastestTime = False
 
-    if Status == 2 or Status == 6:
+    if Status in (2, 6):
         if CheckFastestTime:
             fix_reffile_amount_and_choose_fastest()
             CheckFastestTime = False
@@ -244,7 +247,7 @@ def acUpdate(deltaT):
     else:
         time = info.graphics.iCurrentTime
 
-    if Status == 3 or Status == 5:
+    if Status in (3, 5):
         if ShowStartSpeed:
             if OnServer:
                 ac.setText(line2, lang["startspeed"] + "{:.2f}".format(SpeedTrapValue) + " km/h " + lang["inbrack.server"])
@@ -357,12 +360,12 @@ class TimingWindow:
         ac.setFontSize(self.label_delta, 20)
 
     def update(self):
-        if Status == 0 or Status == 1 or Status == 2 or Status == 6:
+        if Status in (0, 1, 2, 6):
             ac.setText(self.label_time, "Current:  00:00.000")
-            ac.setFontColor(self.label_delta, 1, 1, 1, 1)
+            ac.setFontColor(self.label_delta, *white)
             ac.setText(self.label_delta, "Delta:    +0.000")
 
-        if Status == 3 or Status == 5:
+        if Status in (3, 5):
             time = info.graphics.iCurrentTime
             self._do_delta(time)
             ac.setText(self.label_time, "Current: " + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
@@ -372,24 +375,24 @@ class TimingWindow:
             delta = time - reference_stage_time_int
             ac.setText(self.label_time, "Current: " + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
             if delta > 0:
-                ac.setFontColor(self.label_delta, 1, 0, 0, 1)
+                ac.setFontColor(self.label_delta, *red)
                 ac.setText(self.label_delta, "Delta:     " + "+" + str(int(delta // 1000)) + "." + str(int(delta % 1000)))
             else:
-                ac.setFontColor(self.label_delta, 0, 1, 0, 1)
+                ac.setFontColor(self.label_delta, *green)
                 ac.setText(self.label_delta, "Delta:     " + "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
 
     def _do_delta(self, time):
         if len(reference_data) == 0:
-            ac.setFontColor(self.label_delta, 1, 1, 1, 1)
+            ac.setFontColor(self.label_delta, *white)
             ac.setText(self.label_delta, "Delta:   +0.000")
             return
 
         delta = time - searchNearest(reference_data, ac.getCarState(0, acsys.CS.NormalizedSplinePosition), 0, len(reference_data) - 1)
         if delta > 0:
-            ac.setFontColor(self.label_delta, 1, 0, 0, 1)
+            ac.setFontColor(self.label_delta, *red)
             ac.setText(self.label_delta, "Delta:     " + "+" + str(int(delta // 1000)) + "." + str(int(delta % 1000)))
         else:
-            ac.setFontColor(self.label_delta, 0, 1, 0, 1)
+            ac.setFontColor(self.label_delta, *green)
             ac.setText(self.label_delta, "Delta:     " + "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
 
 
