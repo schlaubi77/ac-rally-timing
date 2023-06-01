@@ -1,5 +1,5 @@
 AC Rally timing app (schlaubi77 & wimdes)
-Version 1.32 (31/05/2023)
+Version 1.33 (01/06/2023)
 
 #####################################################################################################################################
 
@@ -42,7 +42,7 @@ App features:
 
 - Delta timing: 
   * Reference file can be chosen (from same car, other cars, or other driver/car combos)
-  * Works during replays (to be verified when this works or not)
+  * Works during replays (last lap only, reference file has to be re-loaded after finish)
   * Weather conditions, startline speed are registered in the reference files
   * By default all runs are saved. In settings the number of times kept per driver/car combo can be limited
   * Number of reference files kept per player/car combo can be limited (default = unlimited)
