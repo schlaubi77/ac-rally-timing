@@ -1,7 +1,7 @@
 #####################################################
 # Rally Timing v1.33                                #
 #                                                   #
-# Copyright wimdes & schlaubi77 01/06/2023          #
+# Copyright wimdes & schlaubi77 02/06/2023          #
 # Released under the terms of GPLv3                 #
 # thx to Hecrer, PleaseStopThis, KubaV383, GPT-4    #
 #                                                   #
@@ -9,7 +9,9 @@
 # https://bit.ly/3HCELP3                            #
 #                                                   #
 # changelog:                                        #
-# v1.33 delta algorithm, some code cleanup          #
+# v1.33 updated delta algorithm                     #
+#       fix weather information when online         #
+#       some code cleanup                           #
 # v1.32 fix for sim_info not loading                #
 # v1.31 some small fixes                            #
 # v1.3 added delta functionality                    #
@@ -266,7 +268,7 @@ def acUpdate(deltaT):
     ac.setText(line1, StatusList[Status])
 
     window_timing.update()
-    ac.log(str(CheckFastestTime) + ";" + str(Status))
+#    ac.log(str(CheckFastestTime) + ";" + str(Status))
     if ShowFuel:
         ac.setText(line4, lang["fuel"] + "{:.1f}".format(info.physics.fuel) + " l")
 
@@ -675,7 +677,7 @@ def write_reference_file(origin_data, path, time):
              "\n#Weather: " + weather["WEATHER"]["NAME"],
              "\n#Temperature Road: " + weather["TEMPERATURE"]["ROAD"],
              "\n#Temperature Air: " + weather["TEMPERATURE"]["AMBIENT"],
-             "\n#Wind: " + weather["WIND"]["SPEED_KMH_MAX"] + "km/h from " + weather["WIND"]["DIRECTION_DEG"] + "deg\n"]
+             "\n#Wind: " + weather["WIND"]["SPEED_KMH_MAX"] + " km/h from " + weather["WIND"]["DIRECTION_DEG"] + " deg\n"]
     for data in origin_data:
         write.append(str(data[0]) + ";" + str(data[1]) + "\n")
     with open(path + "/" + filename, "w") as file:
@@ -692,27 +694,51 @@ def format_filename_for_list(name):
     concated += splitted[-1].replace(".refl", "").replace("-", " ")  # car name
     return concated
 
-
 def get_weather():
     data = {}
     log_path = os.path.join(os.environ['USERPROFILE'], 'documents', 'Assetto Corsa', 'logs', 'log.txt')
-    with open(log_path, 'r') as file:
-        stop = False
-        for line in file:
-            if stop and line.startswith('['):
-                break
-            line = line.strip()
-            if line.startswith('[') and line.endswith(']'):
-                key = line[1:-1]
-                if key in ['TEMPERATURE', 'WEATHER', 'WIND']:
-                    data[key] = {}
-                    if len(data) == 3:
-                        stop = True
-            elif '=' in line and key in ['TEMPERATURE', 'WEATHER', 'WIND']:
-                sub_key, value = line.split('=')
-                data[key][sub_key] = value
-    return data
+    
+    if OnServer:
+        with open(log_path, "r") as file:
+          for line in file:
+            if "setting wind" in line.lower():
+              try:
+                wind_speed = str(int(float(line.split()[2])))
+                wind_direction = str(int(float(line.split()[5])))
+                data["WIND"] = {"SPEED_KMH_MAX": wind_speed, "DIRECTION_DEG": wind_direction}
+              except IndexError:
+                pass
+            elif "ACP_WEATHER_UPDATE" in line:
+              try:
+                ambient = str(int(float(line.split()[1].split("=")[1])))
+                road = str(int(float(line.split()[2].split("=")[1])))
+                graphics = line.split()[3].split("=")[1]
+                data["WEATHER"] = {"NAME": graphics}
+                data["TEMPERATURE"] = {"AMBIENT": ambient, "ROAD": road}
+              except IndexError:
+                pass
+    else:
+        with open(log_path, 'r') as file:
+            stop = False
+            for line in file:
+                if stop and line.startswith('['):
+                    break
+                line = line.strip()
+                if line.startswith('[') and line.endswith(']'):
+                    key = line[1:-1]
+                    if key in ['TEMPERATURE', 'WEATHER', 'WIND']:
+                        data[key] = {}
+                        if len(data) == 3:
+                            stop = True
+                elif '=' in line and key in ['TEMPERATURE', 'WEATHER', 'WIND']:
+                    sub_key, value = line.split('=')
+                    data[key][sub_key] = value
 
+#    data.setdefault("WIND", {"SPEED_KMH_MAX": 'unknown', "DIRECTION_DEG": 'unknown'})
+#    data.setdefault("WEATHER", {"NAME": 'unknown'})
+#    data.setdefault("TEMPERATURE", {"AMBIENT": 'unknown', "ROAD": 'unknown'})
+
+    return data
 
 def fix_reffile_amount_and_choose_fastest():
     global reference_data
