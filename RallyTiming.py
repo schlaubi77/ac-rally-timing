@@ -47,7 +47,7 @@ ShowFuel = config.getboolean("RallyTiming", "showfuel")
 DebugMode = config.getboolean("RallyTiming", "debugmode")
 Language = config.get("RallyTiming", "language")
 MaxRefFiles = config.getint("RallyTiming", "maximumreffiles")
-DeltaDecimal = config.getint("RallyTiming", "deltadecimals")
+DeltaDecimalDigits = config.getint("RallyTiming", "deltadecimals")
 ResetCar = config.getint("RallyTiming", "resetcar")
 
 with open("apps/python/RallyTiming/config/lang.json", "r", encoding="utf-8") as file:
@@ -396,51 +396,45 @@ class TimingWindow:
             ac.setText(self.label_delta, "Delta:     " + separator + seconds + "." + decimals)
 
     def _do_delta(self, time):
-        global last_ref_index
-        if last_ref_index >= len(reference_data):
-            last_ref_index = len(reference_data) - 1
-    
         if len(reference_data) == 0:
-            ac.setFontColor(self.label_delta, *white)
+            ac.setFontColor(self.label_delta, 1, 1, 1, 1)
             ac.setText(self.label_delta, "Delta:   +0.000")
             return
+        ref_timepoints = searchNearest(reference_data, ac.getCarState(0, acsys.CS.NormalizedSplinePosition), 0, len(reference_data) - 1)
 
-        while reference_data[last_ref_index][0] < ac.getCarState(0, acsys.CS.NormalizedSplinePosition):
-            if len(reference_data) > last_ref_index + 1:
-                last_ref_index += 1
-            else:
-                break
+        # interpolate between the two known timepoints
+        try:
+            ref_time = ((ac.getCarState(0, acsys.CS.NormalizedSplinePosition) - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1]
+        except ZeroDivisionError:
+            # fallback when only one point is found
+            ref_time = ref_timepoints[0][1]
 
-        t1 = reference_data[last_ref_index-1][1]
-        t2 = reference_data[last_ref_index][1]
-        p1 = reference_data[last_ref_index-1][0]
-        p2 = reference_data[last_ref_index][0]
-        p = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
+        delta = int(time - ref_time)
 
-        RefTime = ((p-p1)/(p2-p1))*(t2-t1)+t1
-        delta = time - RefTime
-
-#         delta = time - searchNearest(reference_data, ac.getCarState(0, acsys.CS.NormalizedSplinePosition), 0, len(reference_data) - 1)
-
-
-        decimals = str(round(((abs(delta) % 1000)/1000), DeltaDecimal))[2:].zfill(DeltaDecimal)
-        seconds = str(int(abs(delta) // 1000))
-
-        if delta > 0:
-            separator = '+'
+        seconds = str(abs(delta) // 1000)
+        decimal = str(round(abs(delta) % 1000, -3 + DeltaDecimalDigits)).zfill(3)[:DeltaDecimalDigits]
+        ac.log("i" + str((abs(delta) % 1000)))
+        ac.log("d" + decimal)
+        if delta >= 0:
             ac.setFontColor(self.label_delta, *red)
+            indicator = "+"
         else:
-            separator = '-'
             ac.setFontColor(self.label_delta, *green)
-        ac.setText(self.label_delta, "Delta:     " + separator + seconds + "." + decimals)
+            indicator = "-"
+
+        ac.setText(self.label_delta, "Delta:     " + indicator + seconds + "." + decimal)
+
 
 def searchNearest(list, searched, left, right):
     if left == right:
-        return list[left][1]
+        if list[left][0] > searched:
+            return list[max(left - 1, 0)], list[left]
+        else:
+            return list[left], list[min(left + 1, len(list) - 1)]
     if left > right:
-        return list[right][1]
+        return list[right], list[min(left, len(list) - 1)]
     middle = (left + right) // 2
-    if list[middle][0] < searched:
+    if list[middle][0] <= searched:
         return searchNearest(list, searched, middle + 1, right)
     else:
         return searchNearest(list, searched, left, middle - 1)
