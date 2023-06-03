@@ -83,7 +83,6 @@ window_choose_reference = 0
 window_timing = 0
 reference_data = []
 data_collected = []
-last_ref_index = 0
 
 if not os.path.exists(ReferenceFolder):
     os.makedirs(ReferenceFolder)
@@ -161,7 +160,7 @@ def acMain(ac_version):
 def acUpdate(deltaT):
     global line1, line2, line3, line4, line5, line6
     global Status, ActualSpline, ActualSpeed, StartSpline, FinishSpline, StartSpeed, StartDistance, LastSessionTime, StartPositionAccuracy, LapCountTracker
-    global SpeedTrapValue, StartChecked, data_collected, last_ref_index, CheckFastestTime
+    global SpeedTrapValue, StartChecked, data_collected, CheckFastestTime
 
     ActualSpline = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
     ActualSpeed = ac.getCarState(0, acsys.CS.SpeedKMH)
@@ -171,9 +170,11 @@ def acUpdate(deltaT):
     LapCount = ac.getCarState(0, acsys.CS.LapCount)
     ac.addOnChatMessageListener(appWindow, chat_message_listener)
 
+    # reset button pressed
     if ac.ext_isButtonPressed(ResetCar):
         ac.ext_resetCar()
 
+    # searching startline, but now crossed => save position
     if Status == 0 and LapTime > 0:
         StartSpline = ActualSpline
         Status = 1  # Start Found
@@ -181,23 +182,28 @@ def acUpdate(deltaT):
         with open(StartFinishJson, "w") as file:
             json.dump(StartFinishSplines, file, indent=4)
 
+    # start found and ahead of start => drive to start
     if Status == 1 and ActualSpline < StartSpline:
         Status = 2  # Drive to start
 
+    # driving to start, but close and standing => stopped at line
     if Status == 2 and 0 < StartDistance < MaxStartLineDistance and ActualSpeed < 0.05:
         Status = 6  # stopped at startline
         ac.setFontColor(line1, *green)
 
+    # at startline, but now to far away
     if Status == 6 and StartDistance > MaxStartLineDistance:
         ac.setFontColor(line1, *white)
         Status = 2  # Drive back to start
 
+    # in front of start, but now crossed startline => into stage
     if Status in (2, 6) and ActualSpline > StartSpline:
         StartSpeed = ActualSpeed
         StartPositionAccuracy = abs((StartSpline - ActualSpline) * SplineLength)
         ac.setFontColor(line1, *white)
         Status = 3  # In stage
 
+    # in stage, but lap done => finished
     if Status in (3, 5) and LapCount > LapCountTracker:
         write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
         CheckFastestTime = True
@@ -226,9 +232,9 @@ def acUpdate(deltaT):
             Status = 5  # START FAIL
             ac.setFontColor(line1, *red)
 
+    # reset to before start line => reset
     if Status in (3, 4, 5) and ActualSpline < StartSpline:
         data_collected = []
-        last_ref_index = 0
         Status = 2  # Drive to start
         LapCountTracker = LapCount
         ac.setFontColor(line1, *white)
@@ -240,6 +246,7 @@ def acUpdate(deltaT):
             fix_reffile_amount_and_choose_fastest()
             CheckFastestTime = False
 
+    # driving to start or at start
     if Status in (2, 6):
         if CheckFastestTime:
             fix_reffile_amount_and_choose_fastest()
@@ -251,12 +258,14 @@ def acUpdate(deltaT):
         if ShowStartSpeed:
             ac.setText(line2, lang["startspeedlimit"] + "{}".format(StartSpeedLimit) + " km/h")
 
+    # finished?
     if Status == 4:
         ac.setText(line3, "")
         time = info.graphics.iLastTime
     else:
         time = info.graphics.iCurrentTime
 
+    # driving in stage
     if Status in (3, 5):
         if ShowStartSpeed:
             if OnServer:
@@ -276,7 +285,6 @@ def acUpdate(deltaT):
     ac.setText(line1, StatusList[Status])
 
     window_timing.update()
-#    ac.log(str(CheckFastestTime) + ";" + str(Status))
     if ShowFuel:
         ac.setText(line4, lang["fuel"] + "{:.1f}".format(info.physics.fuel) + " l")
 
@@ -451,7 +459,7 @@ class SelectionListElement:
         ac.addOnClickedListener(self.selection_button, self.click_event)
 
     def clickEvent(self, dummy, variable):
-        global reference_data, last_ref_index
+        global reference_data
 
         if 0 <= self.list_handler.selection_indx < self.list_handler.rows_nbr:
             # if any previous selection present, clear it
@@ -470,7 +478,6 @@ class SelectionListElement:
         reassembled += disassembled_file_name[33:].replace(" ", "-")
 
         reference_data = read_reference_file(ReferenceFolder + "/" + reassembled + ".refl")
-        last_ref_index = 0
         # collapse list
         self.list_handler.dropListDown()
 
@@ -730,23 +737,23 @@ def get_weather():
     
     if OnServer:
         with open(log_path, "r") as file:
-          for line in file:
-            if "setting wind" in line.lower():
-              try:
-                wind_speed = str(int(float(line.split()[2])))
-                wind_direction = str(int(float(line.split()[5])))
-                data["WIND"] = {"SPEED_KMH_MAX": wind_speed, "DIRECTION_DEG": wind_direction}
-              except IndexError:
-                pass
-            elif "ACP_WEATHER_UPDATE" in line:
-              try:
-                ambient = str(int(float(line.split()[1].split("=")[1])))
-                road = str(int(float(line.split()[2].split("=")[1])))
-                graphics = line.split()[3].split("=")[1]
-                data["WEATHER"] = {"NAME": graphics}
-                data["TEMPERATURE"] = {"AMBIENT": ambient, "ROAD": road}
-              except IndexError:
-                pass
+            for line in file:
+                if "setting wind" in line.lower():
+                    try:
+                        wind_speed = str(int(float(line.split()[2])))
+                        wind_direction = str(int(float(line.split()[5])))
+                        data["WIND"] = {"SPEED_KMH_MAX": wind_speed, "DIRECTION_DEG": wind_direction}
+                    except IndexError:
+                        pass
+                elif "ACP_WEATHER_UPDATE" in line:
+                    try:
+                        ambient = str(int(float(line.split()[1].split("=")[1])))
+                        road = str(int(float(line.split()[2].split("=")[1])))
+                        graphics = line.split()[3].split("=")[1]
+                        data["WEATHER"] = {"NAME": graphics}
+                        data["TEMPERATURE"] = {"AMBIENT": ambient, "ROAD": road}
+                    except IndexError:
+                        pass
     else:
         with open(log_path, 'r') as file:
             stop = False
@@ -763,12 +770,8 @@ def get_weather():
                 elif '=' in line and key in ['TEMPERATURE', 'WEATHER', 'WIND']:
                     sub_key, value = line.split('=')
                     data[key][sub_key] = value
-
-#    data.setdefault("WIND", {"SPEED_KMH_MAX": 'unknown', "DIRECTION_DEG": 'unknown'})
-#    data.setdefault("WEATHER", {"NAME": 'unknown'})
-#    data.setdefault("TEMPERATURE", {"AMBIENT": 'unknown', "ROAD": 'unknown'})
-
     return data
+
 
 def fix_reffile_amount_and_choose_fastest():
     global reference_data
