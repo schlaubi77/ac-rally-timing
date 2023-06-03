@@ -1,10 +1,10 @@
 AC Rally timing app (schlaubi77 & wimdes)
-Version 1.33 (01/06/2023)
+Version 1.40 (03/06/2023)
 
 #####################################################################################################################################
 
-The app has 2 main functions: start position verification and delta timing.
-There's 3 windows/sub-apps: Main, Delta timing, Reference file selector.
+The app has 3 main functions: start position verification, delta timing and a car reset key.
+There's 3 windows/sub-apps: Main, Delta timing, Reference file selector (opened separately in app menu bar)
 
 Start position: The app wil help in finding proper starting position, and alert if a lap will be invalidated by AC Server Manager when a speed trap is set on the startline. Speed traps were introduced in ACSM version v2.3.4.
 
@@ -39,10 +39,11 @@ App features:
 - Most settings can be configuerd in Python app settings in Content manager
   * Optionally show remaining fuel level
   * Interface language can be set to English, Spanish, French or German
+- Reset car to track key - configurable in CM app settings (keyboard only)
 
 - Delta timing: 
   * Reference file can be chosen (from same car, other cars, or other driver/car combos)
-  * Works during replays (last lap only, reference file has to be re-loaded after finish)
+  *** to be fixed: Works during replays (last lap only, reference file has to be re-loaded after finishing)
   * Weather conditions, startline speed are registered in the reference files
   * By default all runs are saved. In settings the number of times kept per driver/car combo can be limited
   * Number of reference files kept per player/car combo can be limited (default = unlimited)
@@ -65,3 +66,5 @@ ShowFuel = true                 # show fuel remaining
 DebugMode = false               # show some additional values (overwriting fuel status)
 Language = "English"            # "English", "Spanish", "French", "German"
 MaximumRefFiles = 0             # number of times kept per driver/car combo (the fastest times. 0 = unlimited)
+Deltadecimals=2 		# delta Decimals (tenths/hundredths/thousandths of a second); 1,2,3
+ResetCar=R			# reset Car (key); keyboard button
