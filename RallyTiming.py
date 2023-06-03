@@ -1,7 +1,7 @@
 #####################################################
-# Rally Timing v1.33                                #
+# Rally Timing v1.40                                #
 #                                                   #
-# Copyright wimdes & schlaubi77 02/06/2023          #
+# Copyright wimdes & schlaubi77 03/06/2023          #
 # Released under the terms of GPLv3                 #
 # thx to Hecrer, PleaseStopThis, KubaV383, GPT-4    #
 #                                                   #
@@ -9,6 +9,10 @@
 # https://bit.ly/3HCELP3                            #
 #                                                   #
 # changelog:                                        #
+# v1.40 smoothen delta timing by time interpolation #
+#       (reverting to old lookup                    #
+#       make delta time digits configurable         #
+#       add car reset key, config in CM             #
 # v1.33 updated delta algorithm                     #
 #       fix weather information when online         #
 #       some code cleanup                           #
@@ -22,7 +26,6 @@
 # TODO:                                             #
 # cleanup code                                      #
 # reset track data button                           #
-# add replay detection                              #
 # add linear bar                                    #
 #                                                   #
 # interval for ref file creation                    #
@@ -44,6 +47,8 @@ ShowFuel = config.getboolean("RallyTiming", "showfuel")
 DebugMode = config.getboolean("RallyTiming", "debugmode")
 Language = config.get("RallyTiming", "language")
 MaxRefFiles = config.getint("RallyTiming", "maximumreffiles")
+DeltaDecimal = config.getint("RallyTiming", "deltadecimals")
+ResetCar = config.getint("RallyTiming", "resetcar")
 
 with open("apps/python/RallyTiming/config/lang.json", "r", encoding="utf-8") as file:
     lang = json.load(file)
@@ -165,6 +170,9 @@ def acUpdate(deltaT):
     LapTime = ac.getCarState(0, acsys.CS.LapTime)
     LapCount = ac.getCarState(0, acsys.CS.LapCount)
     ac.addOnChatMessageListener(appWindow, chat_message_listener)
+
+    if ac.ext_isButtonPressed(ResetCar):
+        ac.ext_resetCar()
 
     if Status == 0 and LapTime > 0:
         StartSpline = ActualSpline
@@ -374,29 +382,57 @@ class TimingWindow:
 
         if Status == 4:
             time = info.graphics.iLastTime
-            delta = time - reference_stage_time_int
             ac.setText(self.label_time, "Current: " + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
+            delta = time - reference_stage_time_int
+            decimals = str(round(((abs(delta) % 1000)/1000), 3))[2:].zfill(3)
+            seconds = str(int(abs(delta) // 1000))
+
             if delta > 0:
+                separator = '+'
                 ac.setFontColor(self.label_delta, *red)
-                ac.setText(self.label_delta, "Delta:     " + "+" + str(int(delta // 1000)) + "." + str(int(delta % 1000)))
             else:
+                separator = '-'
                 ac.setFontColor(self.label_delta, *green)
-                ac.setText(self.label_delta, "Delta:     " + "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
+            ac.setText(self.label_delta, "Delta:     " + separator + seconds + "." + decimals)
 
     def _do_delta(self, time):
+        global last_ref_index
+        if last_ref_index >= len(reference_data):
+            last_ref_index = len(reference_data) - 1
+    
         if len(reference_data) == 0:
             ac.setFontColor(self.label_delta, *white)
             ac.setText(self.label_delta, "Delta:   +0.000")
             return
 
-        delta = time - searchNearest(reference_data, ac.getCarState(0, acsys.CS.NormalizedSplinePosition), 0, len(reference_data) - 1)
-        if delta > 0:
-            ac.setFontColor(self.label_delta, *red)
-            ac.setText(self.label_delta, "Delta:     " + "+" + str(int(delta // 1000)) + "." + str(int(delta % 1000)))
-        else:
-            ac.setFontColor(self.label_delta, *green)
-            ac.setText(self.label_delta, "Delta:     " + "-" + str(int(abs(delta) // 1000)) + "." + str(int(abs(delta) % 1000)))
+        while reference_data[last_ref_index][0] < ac.getCarState(0, acsys.CS.NormalizedSplinePosition):
+            if len(reference_data) > last_ref_index + 1:
+                last_ref_index += 1
+            else:
+                break
 
+        t1 = reference_data[last_ref_index-1][1]
+        t2 = reference_data[last_ref_index][1]
+        p1 = reference_data[last_ref_index-1][0]
+        p2 = reference_data[last_ref_index][0]
+        p = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
+
+        RefTime = ((p-p1)/(p2-p1))*(t2-t1)+t1
+        delta = time - RefTime
+
+#         delta = time - searchNearest(reference_data, ac.getCarState(0, acsys.CS.NormalizedSplinePosition), 0, len(reference_data) - 1)
+
+
+        decimals = str(round(((abs(delta) % 1000)/1000), DeltaDecimal))[2:].zfill(DeltaDecimal)
+        seconds = str(int(abs(delta) // 1000))
+
+        if delta > 0:
+            separator = '+'
+            ac.setFontColor(self.label_delta, *red)
+        else:
+            separator = '-'
+            ac.setFontColor(self.label_delta, *green)
+        ac.setText(self.label_delta, "Delta:     " + separator + seconds + "." + decimals)
 
 def searchNearest(list, searched, left, right):
     if left == right:
