@@ -1,6 +1,6 @@
 # AC Rally timing app (by schlaubi77 & wimdes)
 
-## Version 1.40 (03/06/2023)
+## Version 1.41 (05/06/2023)
 
 ***
 
@@ -48,7 +48,7 @@ Speed Traps - Send Chat Messages must be "On" in the server, otherwise there wil
 
 - Delta timing: 
   * Reference file can be chosen (from same car, other cars, or other driver/car combos)
-  *** to be fixed: Works during replays (last lap only, reference file has to be re-loaded after finishing)
+  * Works during replays (last lap only, reference file has to be re-loaded after finishing)
   * Weather conditions, startline speed are registered in the reference files
   * By default all runs are saved. In settings the number of times kept per driver/car combo can be limited
   * Number of reference files kept per player/car combo can be limited (default = unlimited)
@@ -72,6 +72,6 @@ Speed Traps - Send Chat Messages must be "On" in the server, otherwise there wil
 - ShowFuel = true &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; show fuel remaining
 - DebugMode = false &emsp;&emsp;&emsp;&emsp;&emsp;&ensp; show some additional values (overwriting fuel status)
 - Language = "English"&emsp;&emsp;&emsp;&emsp;&emsp; "English", "Spanish", "French", "German"
-- MaximumRefFiles = 0 &emsp;&emsp;&emsp;&emsp;&emsp; number of times kept per driver/car combo (the fastest times. 0 = unlimited)
+- MaximumRefFiles = 10 &emsp;&emsp;&emsp;&emsp;&emsp; number of times kept per driver/car combo (the fastest times. 0 = unlimited)
 - DeltaDecimals=2 &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; Decimal Digits for the Delta (tenths/hundredths/thousandths of a second)
-- ResetCar=R &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&nbsp; reset Car (keybord button)
+- ResetCar=82 &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&nbsp; reset Car (keybord button)

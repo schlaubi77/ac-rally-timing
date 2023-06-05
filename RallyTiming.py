@@ -1,5 +1,5 @@
 #####################################################
-# Rally Timing v1.40                                #
+# Rally Timing v1.41                                #
 #                                                   #
 # Copyright wimdes & schlaubi77 03/06/2023          #
 # Released under the terms of GPLv3                 #
@@ -9,8 +9,8 @@
 # https://bit.ly/3HCELP3                            #
 #                                                   #
 # changelog:                                        #
+# v1.41 add in-game time & weather values check     #
 # v1.40 smoothen delta timing by time interpolation #
-#       (reverting to old lookup                    #
 #       make delta time digits configurable         #
 #       add car reset key, config in CM             #
 # v1.33 updated delta algorithm                     #
@@ -421,8 +421,8 @@ class TimingWindow:
 
         seconds = str(abs(delta) // 1000)
         decimal = str(round(abs(delta) % 1000, -3 + DeltaDecimalDigits)).zfill(3)[:DeltaDecimalDigits]
-        ac.log("i" + str((abs(delta) % 1000)))
-        ac.log("d" + decimal)
+#        ac.log("i" + str((abs(delta) % 1000)))
+#        ac.log("d" + decimal)
         if delta >= 0:
             ac.setFontColor(self.label_delta, *red)
             indicator = "+"
@@ -706,7 +706,8 @@ def write_reference_file(origin_data, path, time):
     filename = str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3) + "_" + ac.getDriverName(0) + "_" + ac.getCarName(0).replace("_", "-") + ".refl"
     weather = get_weather()
     write = ["#Car: " + ac.getCarName(0),
-             "\n#Date: " + datetime.now().strftime("%d-%m-%Y, %H:%M:%S"),
+             "\n#Local date & time: " + datetime.now().strftime("%d-%m-%Y, %H:%M:%S"),
+             "\n#In-game time: " + weather["GAMETIME"]["HOUR"],
              "\n#Driver: " + ac.getDriverName(0),
              "\n#Stage time: " + str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3),
              "\n#Speed on startline: {:.2f}".format(StartSpeed) + " km/h",
@@ -770,6 +771,25 @@ def get_weather():
                 elif '=' in line and key in ['TEMPERATURE', 'WEATHER', 'WIND']:
                     sub_key, value = line.split('=')
                     data[key][sub_key] = value
+
+    gameTime=''
+    lines = (ac.ext_weatherDebugText()).strip().split('\n')
+    for line in lines:
+        if 'current day' in line:
+            data["GAMETIME"] = {"HOUR": line[-8:-3]}
+
+    keys = ["WEATHER", "TEMPERATURE", "WIND", "GAMETIME"]
+    sub_keys = {"WEATHER": ["NAME"], "TEMPERATURE": ["AMBIENT", "ROAD"], "WIND": ["SPEED_KMH_MAX", "DIRECTION_DEG"],"GAMETIME": ["HOUR"]}
+    for key in keys:
+        if key not in data:
+            data[key] = {sub_key: "unknown" for sub_key in sub_keys[key]}
+        else:
+            for sub_key in sub_keys[key]:
+                if sub_key not in data[key]:
+                    data[key][sub_key] = "unknown"
+                elif not data[key][sub_key]:
+                    data[key][sub_key] = "unknown"
+
     return data
 
 
