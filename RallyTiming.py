@@ -1,7 +1,7 @@
 #####################################################
 # Rally Timing v1.41                                #
 #                                                   #
-# Copyright wimdes & schlaubi77 03/06/2023          #
+# Copyright wimdes & schlaubi77 06/06/2023          #
 # Released under the terms of GPLv3                 #
 # thx to Hecrer, PleaseStopThis, KubaV383, GPT-4    #
 #                                                   #
@@ -9,7 +9,9 @@
 # https://bit.ly/3HCELP3                            #
 #                                                   #
 # changelog:                                        #
-# v1.41 add in-game time & weather values check     #
+# v1.41 add wheel button option for car reset       #
+#       reorganized app settings in CM              #
+#       add in-game time & weather values check     #
 # v1.40 smoothen delta timing by time interpolation #
 #       make delta time digits configurable         #
 #       add car reset key, config in CM             #
@@ -39,16 +41,19 @@ config = configparser.ConfigParser(inline_comment_prefixes=';')
 config.read("apps/python/RallyTiming/config/config.ini")
 
 ###### App settings
-StartSpeedLimit = config.getint("RallyTiming", "startspeedlimit")
-MaxStartLineDistance = config.getfloat("RallyTiming", "maxstartlinedistance")
-ShowStartSpeed = config.getboolean("RallyTiming", "showstartspeed")
-ShowRemainingDistance = config.getboolean("RallyTiming", "showremainingdistance")
-ShowFuel = config.getboolean("RallyTiming", "showfuel")
-DebugMode = config.getboolean("RallyTiming", "debugmode")
-Language = config.get("RallyTiming", "language")
-MaxRefFiles = config.getint("RallyTiming", "maximumreffiles")
-DeltaDecimalDigits = config.getint("RallyTiming", "deltadecimals")
-ResetCar = config.getint("RallyTiming", "resetcar")
+StartSpeedLimit = config.getint("STARTVERIFICATION", "startspeedlimit")
+MaxStartLineDistance = config.getfloat("STARTVERIFICATION", "maxstartlinedistance")
+ShowStartSpeed = config.getboolean("STARTVERIFICATION", "showstartspeed")
+ShowRemainingDistance = config.getboolean("GUIOPTIONS", "showremainingdistance")
+ShowFuel = config.getboolean("GUIOPTIONS", "showfuel")
+Language = config.get("GUIOPTIONS", "language")
+DebugMode = config.getboolean("OTHERSETTINGS", "debugmode")
+MaxRefFiles = config.getint("OTHERSETTINGS", "maximumreffiles")
+DeltaDecimalDigits = config.getint("OTHERSETTINGS", "deltadecimals")
+ResetKey = config.getint("RESETKEY", "resetkey")
+EnableWheelButton = config.getboolean("RESETWHEEL", "enablewheelbutton")
+WheelID = config.getint("RESETWHEEL", "wheelid") - 1
+ButtonID = config.getint("RESETWHEEL", "buttonid") - 1
 
 with open("apps/python/RallyTiming/config/lang.json", "r", encoding="utf-8") as file:
     lang = json.load(file)
@@ -170,9 +175,12 @@ def acUpdate(deltaT):
     LapCount = ac.getCarState(0, acsys.CS.LapCount)
     ac.addOnChatMessageListener(appWindow, chat_message_listener)
 
-    # reset button pressed
-    if ac.ext_isButtonPressed(ResetCar):
+    # reset key or button pressed
+    if ac.ext_isButtonPressed(ResetKey):
         ac.ext_resetCar()
+    if EnableWheelButton:
+        if ac.ext_isJoystickButtonPressed(WheelID,ButtonID):
+            ac.ext_resetCar()
 
     # searching startline, but now crossed => save position
     if Status == 0 and LapTime > 0:

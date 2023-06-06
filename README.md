@@ -44,7 +44,7 @@ Speed Traps - Send Chat Messages must be "On" in the server, otherwise there wil
 - Most settings can be configuerd in Python app settings in Content manager
   * Optionally show remaining fuel level
   * Interface language can be set to English, Spanish, French or German
-- Reset car to track key - configurable in CM app settings (keyboard only)
+- Reset car to track button - configurable in CM app settings (keyboard or wheel)
 
 - Delta timing: 
   * Reference file can be chosen (from same car, other cars, or other driver/car combos)
