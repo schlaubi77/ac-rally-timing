@@ -17,7 +17,9 @@
 		"othercars": "Show other cars",
 		"otherdrivers": "Show other drivers",
 		"inbrack.estimated": "(Estimated)",
-		"inbrack.server": "(on server)"
+		"inbrack.server": "(on server)",
+		"button.opentiming": "Open Timing",
+		"button.openreference": "Choose Delta Reference"
 	},
 	"Spanish": {
 		"phase.detect": "DETECTANDO LÍNEA DE SALIDA",
@@ -37,7 +39,9 @@
 		"othercars": "Mostrar otros coches",
 		"otherdrivers": "Mostrar otros pilotos",
 		"inbrack.estimated": "(Estimado)",
-		"inbrack.server": "(En servidor)"
+		"inbrack.server": "(En servidor)",
+		"button.opentiming": "translation missing",
+		"button.openreference": "translation missing"
 	},
 	"French": {
 		"phase.detect": "DÉTECTION LIGNE DE DÉPART",
@@ -57,7 +61,9 @@
 		"othercars": "Montrer autres voitures",
 		"otherdrivers": "Montrer autres pilotes",
 		"inbrack.estimated": "(Estimée)",
-		"inbrack.server": "(au serveur)"
+		"inbrack.server": "(au serveur)",
+		"button.opentiming": "translation missing",
+		"button.openreference": "translation missing"
 	},
 	"German": {
 		"phase.detect": "START WIRD GESUCHT",
@@ -77,6 +83,8 @@
 		"othercars": "Zeige andere Fahrzeuge",
 		"otherdrivers": "Zeige andere Fahrer",
 		"inbrack.estimated": "(Geschätzt)",
-		"inbrack.server": "(vom Server)"
+		"inbrack.server": "(vom Server)",
+		"button.opentiming": "Öffne Zeitnahme",
+		"button.openreference": "Wähle die Referenzzeit"
 	}
 }

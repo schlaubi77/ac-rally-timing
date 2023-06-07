@@ -9,6 +9,7 @@
 # https://bit.ly/3HCELP3                            #
 #                                                   #
 # changelog:                                        #
+# v1.42 added buttons to toggle the sub-apps        #
 # v1.41 add wheel button option for car reset       #
 #       reorganized app settings in CM              #
 #       add in-game time & weather values check     #
@@ -88,6 +89,7 @@ window_choose_reference = 0
 window_timing = 0
 reference_data = []
 data_collected = []
+button_open_timing = 0
 
 if not os.path.exists(ReferenceFolder):
     os.makedirs(ReferenceFolder)
@@ -130,21 +132,29 @@ ac.console(AppName + ": Track Name: " + TrackName)
 
 
 def acMain(ac_version):
-    global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow
+    global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow, button_open_timing
 
     appWindow = ac.newApp(AppName + " - Main")
 
     if not DebugMode:
         if not ShowFuel:
-            ac.setSize(appWindow, 373, 92)   # default is 373,92
+            ac.setSize(appWindow, 373, 120)   # default is 373,92
+            appWindowHeight = 120
         else:
-            ac.setSize(appWindow, 373, 112)
+            ac.setSize(appWindow, 373, 140)
+            appWindowHeight = 140
     else:
-        ac.setSize(appWindow, 580, 172)
+        ac.setSize(appWindow, 580, 200)
+        appWindowHeight = 200
     ac.setTitle(appWindow, "")
     ac.drawBorder(appWindow, 0)
     ac.setIconPosition(appWindow, 0, -10000)
-    ac.setBackgroundOpacity(appWindow, 0.1)
+    ac.setBackgroundOpacity(appWindow, 0.4)
+
+    button_open_timing = ac.addButton(appWindow, lang["button.opentiming"])
+    ac.setPosition(button_open_timing, 10, appWindowHeight - 30)
+    ac.setSize(button_open_timing, 100, 25)
+    ac.addOnClickedListener(button_open_timing, toggle_timing_window)
 
     window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
     window_timing = TimingWindow()
@@ -325,6 +335,12 @@ class ChooseReferenceWindow:
         ac.setSize(self.window, x, y)
         ac.setIconPosition(self.window, 16000, 16000)
 
+        self.isActivated = False
+        self.onActivate = self.on_activate
+        self.onDeactivate = self.on_deactivate
+        ac.addOnAppActivatedListener(self.window, self.onActivate)
+        ac.addOnAppDismissedListener(self.window, self.onDeactivate)
+
         self.otherCarsBox = ac.addCheckBox(self.window, lang["othercars"])
         self.carStateChangedFunction = self.carStateChanged
         self.showOtherCars = True
@@ -361,16 +377,26 @@ class ChooseReferenceWindow:
                 show.append(e)
         self.list.setElements(show)
 
+    def on_activate(self, *args):
+        self.isActivated = True
+
+    def on_deactivate(self, *args):
+        self.isActivated = False
+
+    def toggleVisibility(self):
+        self.isActivated = not self.isActivated
+        ac.setVisible(self.window, int(self.isActivated))
+
 
 class TimingWindow:
 
-    def __init__(self, name="Rally Timing - Delta", x=200, y=90):
+    def __init__(self, name="Rally Timing - Delta", x=200, y=118):
         self.name = name
         self.window = ac.newApp(name)
         ac.setTitle(self.window, "")
         ac.setSize(self.window, x, y)
         ac.drawBorder(self.window, 0)
-        ac.setBackgroundOpacity(self.window, 0.1)
+        ac.setBackgroundOpacity(self.window, 0.4)
         ac.setIconPosition(self.window, 16000, 16000)
 
         self.label_ref = ac.addLabel(self.window, "Target:    (none)")
@@ -384,6 +410,18 @@ class TimingWindow:
         self.label_delta = ac.addLabel(self.window, "Delta:   +0.000")
         ac.setPosition(self.label_delta, 20, 55)
         ac.setFontSize(self.label_delta, 20)
+
+        self.button_open_reference = ac.addButton(self.window, lang["button.openreference"])
+        ac.setPosition(self.button_open_reference, 10, 88)
+        ac.setSize(self.button_open_reference, 180, 25)
+        self.openReference = self.open_reference
+        ac.addOnClickedListener(self.button_open_reference, self.openReference)
+
+        self.isActivated = False
+        self.onActivate = self.on_activate
+        self.onDeactivate = self.on_deactivate
+        ac.addOnAppActivatedListener(self.window, self.onActivate)
+        ac.addOnAppDismissedListener(self.window, self.onDeactivate)
 
     def update(self):
         if Status in (0, 1, 2, 6):
@@ -439,6 +477,20 @@ class TimingWindow:
             indicator = "-"
 
         ac.setText(self.label_delta, "Delta:     " + indicator + seconds + "." + decimal)
+
+    def on_activate(self, *args):
+        self.isActivated = True
+
+    def on_deactivate(self, *args):
+        self.isActivated = False
+
+    def toggleVisibility(self):
+        self.isActivated = not self.isActivated
+        ac.setVisible(self.window, int(self.isActivated))
+
+    def open_reference(self, *args):
+        window_choose_reference.toggleVisibility()
+
 
 
 def searchNearest(list, searched, left, right):
@@ -836,3 +888,6 @@ def fix_reffile_amount_and_choose_fastest():
         reference_data = read_reference_file(ReferenceFolder + "/" + fastest_file + ".refl")
         window_choose_reference.list.select(format_filename_for_list(fastest_file))
 
+
+def toggle_timing_window(*args):
+    window_timing.toggleVisibility()
