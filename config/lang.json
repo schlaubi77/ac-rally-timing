@@ -19,7 +19,8 @@
 		"inbrack.estimated": "(Estimated)",
 		"inbrack.server": "(on server)",
 		"button.opentiming": "Open Timing",
-		"button.openreference": "Choose Delta Reference"
+		"button.openreference": "Choose Delta Reference",
+		"button.openmap": "Open Map View"
 	},
 	"Spanish": {
 		"phase.detect": "DETECTANDO LÍNEA DE SALIDA",
@@ -41,7 +42,8 @@
 		"inbrack.estimated": "(Estimado)",
 		"inbrack.server": "(En servidor)",
 		"button.opentiming": "translation missing",
-		"button.openreference": "translation missing"
+		"button.openreference": "translation missing",
+		"button.openmap": "translation missing"
 	},
 	"French": {
 		"phase.detect": "DÉTECTION LIGNE DE DÉPART",
@@ -63,7 +65,8 @@
 		"inbrack.estimated": "(Estimée)",
 		"inbrack.server": "(au serveur)",
 		"button.opentiming": "translation missing",
-		"button.openreference": "translation missing"
+		"button.openreference": "translation missing",
+		"button.openmap": "translation missing"
 	},
 	"German": {
 		"phase.detect": "START WIRD GESUCHT",
@@ -84,7 +87,8 @@
 		"otherdrivers": "Zeige andere Fahrer",
 		"inbrack.estimated": "(Geschätzt)",
 		"inbrack.server": "(vom Server)",
-		"button.opentiming": "Öffne Zeitnahme",
-		"button.openreference": "Wähle die Referenzzeit"
+		"button.opentiming": "Öffne die Zeitnahme",
+		"button.openreference": "Wähle die Referenzzeit",
+		"button.openmap": "Öffne die Kartenansicht"
 	}
 }

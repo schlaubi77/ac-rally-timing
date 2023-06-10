@@ -1,7 +1,7 @@
 #####################################################
-# Rally Timing v1.41                                #
+# Rally Timing v1.5.0                               #
 #                                                   #
-# Copyright wimdes & schlaubi77 06/06/2023          #
+# Copyright wimdes & schlaubi77 10/06/2023          #
 # Released under the terms of GPLv3                 #
 # thx to Hecrer, PleaseStopThis, KubaV383, GPT-4    #
 #                                                   #
@@ -9,6 +9,8 @@
 # https://bit.ly/3HCELP3                            #
 #                                                   #
 # changelog:                                        #
+# v1.5.0 added a linear map display showing section #
+#        progress                                   #
 # v1.42 added buttons to toggle the sub-apps        #
 # v1.41 add wheel button option for car reset       #
 #       reorganized app settings in CM              #
@@ -87,9 +89,12 @@ ReferenceFolder = "apps/python/RallyTiming/referenceLaps/" + TrackName
 
 window_choose_reference = 0
 window_timing = 0
+window_progress_bar = 0
 reference_data = []
 data_collected = []
+split_times = [-1 for _ in range(4)]
 button_open_timing = 0
+button_open_map = 0
 
 if not os.path.exists(ReferenceFolder):
     os.makedirs(ReferenceFolder)
@@ -112,7 +117,7 @@ with open(StartFinishJson, "r") as file:
         ac.console(AppName + ": No complete track info found in json")
         Status = 0
         StartSpline = 0
-        FinishSpline = 0
+        FinishSpline = 1.0001  # fallback value but offseted, so it is marked that fallback
         StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 0, "TrueLength": 0}
 
 white = (1, 1, 1, 1)
@@ -132,7 +137,7 @@ ac.console(AppName + ": Track Name: " + TrackName)
 
 
 def acMain(ac_version):
-    global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow, button_open_timing
+    global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow, button_open_timing, window_progress_bar
 
     appWindow = ac.newApp(AppName + " - Main")
 
@@ -153,11 +158,17 @@ def acMain(ac_version):
 
     button_open_timing = ac.addButton(appWindow, lang["button.opentiming"])
     ac.setPosition(button_open_timing, 10, appWindowHeight - 30)
-    ac.setSize(button_open_timing, 100, 25)
+    ac.setSize(button_open_timing, 130, 25)
     ac.addOnClickedListener(button_open_timing, toggle_timing_window)
+
+    button_open_map = ac.addButton(appWindow, lang["button.openmap"])
+    ac.setPosition(button_open_map, 150, appWindowHeight - 30)
+    ac.setSize(button_open_map, 130, 25)
+    ac.addOnClickedListener(button_open_map, toggle_map)
 
     window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
     window_timing = TimingWindow()
+    window_progress_bar = ProgressBarWindow()
 
     lines = []
     for i in range(6):
@@ -226,7 +237,7 @@ def acUpdate(deltaT):
         write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
         CheckFastestTime = True
         Status = 4  # Over finish
-        if FinishSpline == 0:
+        if FinishSpline == 1.0001:
             FinishSpline = ActualSpline
             TrueLength = (FinishSpline-StartSpline) * SplineLength
             StartFinishSplines[TrackName]["FinishSpline"] = ActualSpline
@@ -291,7 +302,7 @@ def acUpdate(deltaT):
             else:
                 ac.setText(line2, lang["startspeed"] + "{:.2f}".format(StartSpeed) + " km/h")
         if ShowRemainingDistance:
-            if FinishSpline != 0:
+            if FinishSpline != 1.0001:
                 ac.setText(line3, lang["finishdist"] + "{:.0f}".format(FinishDistance) + " m")
             else:
                 ac.setText(line3, lang["finishdist"] + "{:.0f}".format((1 - ac.getCarState(0, acsys.CS.NormalizedSplinePosition)) * SplineLength) + " m " + lang["inbrack.estimated"])
@@ -310,6 +321,10 @@ def acUpdate(deltaT):
         ac.setText(line4, "StartPositionAccuracy: {:.2f}".format(StartPositionAccuracy) + "  Status: {}".format(Status) + "  StageTimeRef: {}".format(reference_stage_time_int))
         ac.setText(line5, "ActualSpline: {:.5f}".format(ActualSpline) + "  StartSpline: {:.5f}".format(StartSpline) + "  FinishSpline: {:.5f}".format(FinishSpline))
         ac.setText(line6, "XYStartDistance: {:.2f}".format(XYStartDistance()) + "  LapCount: {}".format(LapCount) + "  SpeedTrapValue: {}".format(SpeedTrapValue))
+
+
+def appGL(deltaT):
+    window_progress_bar.do_GL()
 
 
 def XYStartDistance():
@@ -492,7 +507,6 @@ class TimingWindow:
         window_choose_reference.toggleVisibility()
 
 
-
 def searchNearest(list, searched, left, right):
     if left == right:
         if list[left][0] > searched:
@@ -506,6 +520,97 @@ def searchNearest(list, searched, left, right):
         return searchNearest(list, searched, middle + 1, right)
     else:
         return searchNearest(list, searched, left, middle - 1)
+
+
+class ProgressBarWindow:
+    def __init__(self, name="Rally Timing - Progress Bar", x=60, y=640):
+        self.name = name
+        self.window = ac.newApp(name)
+        ac.setSize(self.window, x, y)
+        ac.setIconPosition(self.window, 16000, 16000)
+
+        self.isActivated = False
+        self.onActivate = self.on_activate
+        self.onDeactivate = self.on_deactivate
+        ac.addOnAppActivatedListener(self.window, self.onActivate)
+        ac.addOnAppDismissedListener(self.window, self.onDeactivate)
+
+        ac.setTitle(self.window, "")
+        ac.drawBorder(self.window, 0)
+        ac.setBackgroundOpacity(self.window, 0)
+
+        self.barWidth = (x - 42) / 2
+        self.barHeight = y - 40
+        self.windowWidth = x
+        self.windowHeight = y
+
+        self.splits = 3
+
+        self.finishLine = ac.addLabel(self.window, "")
+        ac.setPosition(self.finishLine, x/2 - 15, 18)
+        ac.setSize(self.finishLine, 30, 5)
+        ac.setBackgroundTexture(self.finishLine, "apps/python/RallyTiming/gui/finish.png")
+
+        self.renderFunction = self.render
+        ac.addRenderCallback(self.window, self.renderFunction)
+
+    def render(self, *args):
+        ac.glColor4f(*white)
+        ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, 20, self.barWidth, self.barHeight)  # X, Y, width, height
+
+        splinePos = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
+
+        last_delta = 0
+
+        # color splits
+        for i in range(1, int((splinePos - StartSpline) / (FinishSpline - StartSpline) * (self.splits + 1)) + 1):
+            # find if split was faster or slower
+            searchPos = (FinishSpline - StartSpline) * i / 4 + StartSpline
+            ref_timepoints = searchNearest(data_collected, searchPos, 0, len(data_collected) - 1)
+
+            # interpolate between the two known timepoints
+            try:
+                split_i = ((searchPos - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1]
+            except ZeroDivisionError:
+                # fallback when only one point is found
+                split_i = ref_timepoints[0][1]
+            ac.glColor4f(*green)
+            if split_i - split_times[i - 1] - last_delta > 0:
+                ac.glColor4f(*red)
+
+            last_delta = split_i - split_times[i - 1]
+            ac.glBegin(1)
+            ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth, self.barHeight / (self.splits + 1))
+            ac.glEnd()
+
+        # draw split positions
+        for i in range(1, (self.splits + 1)):
+            ac.glColor4f(*white)
+            ac.glBegin(1)
+            ac.glQuad(self.windowWidth / 2 - (self.barWidth * 3) / 2, self.barHeight * i / (self.splits + 1) + 20, self.barWidth * 3, 2)
+            ac.glEnd()
+        # draw car position
+
+        MapPosition = min(40 + self.barHeight - (self.barHeight * (splinePos - StartSpline) / (FinishSpline - StartSpline)), self.windowHeight - self.barWidth)
+
+        ac.glColor4f(*red)
+
+        ac.glBegin(3)
+        ac.glVertex2f(self.windowWidth / 2, MapPosition + self.barWidth)
+        ac.glVertex2f(self.windowWidth / 2 - self.barWidth, MapPosition)
+        ac.glVertex2f(self.windowWidth / 2, MapPosition - self.barWidth)
+        ac.glVertex2f(self.windowWidth / 2 + self.barWidth, MapPosition)
+        ac.glEnd()
+
+    def on_activate(self, *args):
+        self.isActivated = True
+
+    def on_deactivate(self, *args):
+        self.isActivated = False
+
+    def toggleVisibility(self):
+        self.isActivated = not self.isActivated
+        ac.setVisible(self.window, int(self.isActivated))
 
 
 class SelectionListElement:
@@ -739,7 +844,7 @@ class SelectionList:
 
 
 def read_reference_file(path):
-    global reference_stage_time_int
+    global reference_stage_time_int, split_times
     with open(path, "r") as file:
         data = file.readlines()
 
@@ -758,6 +863,21 @@ def read_reference_file(path):
     reference_stage_time_int = int(stage_time_str[:2]) * 60000 + int(stage_time_str[3:5]) * 1000 + int(stage_time_str[6:])  # convert stage time string to integer
 
     ac.setText(window_timing.label_ref, "Target:   " + str(int(reference_stage_time_int // 60000)).zfill(2) + ":" + str(int((reference_stage_time_int % 60000) // 1000)).zfill(2) + "." + str(int(reference_stage_time_int % 1000)).zfill(3))
+
+    # add split times
+    for i in range(3):
+        searchPos = (FinishSpline - StartSpline) * (i + 1) / 4 + StartSpline
+        ref_timepoints = searchNearest(ret, searchPos, 0, len(ret) - 1)
+
+        # interpolate between the two known timepoints
+        try:
+            split_i = ((searchPos - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1]
+        except ZeroDivisionError:
+            # fallback when only one point is found
+            split_i = ref_timepoints[0][1]
+        split_times[i] = split_i
+    split_times[3] = reference_stage_time_int
+    ac.log(str(split_times))
 
     return ret
 
@@ -791,6 +911,7 @@ def format_filename_for_list(name):
     concated += "_".join(splitted[1:-1]).ljust(18)  # padded name
     concated += splitted[-1].replace(".refl", "").replace("-", " ")  # car name
     return concated
+
 
 def get_weather():
     data = {}
@@ -832,7 +953,6 @@ def get_weather():
                     sub_key, value = line.split('=')
                     data[key][sub_key] = value
 
-    gameTime=''
     lines = (ac.ext_weatherDebugText()).strip().split('\n')
     for line in lines:
         if 'current day' in line:
@@ -891,3 +1011,6 @@ def fix_reffile_amount_and_choose_fastest():
 
 def toggle_timing_window(*args):
     window_timing.toggleVisibility()
+
+def toggle_map(*args):
+    window_progress_bar.toggleVisibility()
