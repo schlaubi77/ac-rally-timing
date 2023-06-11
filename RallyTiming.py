@@ -1,7 +1,7 @@
 #####################################################
 # Rally Timing v1.5.0                               #
 #                                                   #
-# Copyright wimdes & schlaubi77 10/06/2023          #
+# Copyright wimdes & schlaubi77 11/06/2023          #
 # Released under the terms of GPLv3                 #
 # thx to Hecrer, PleaseStopThis, KubaV383, GPT-4    #
 #                                                   #
@@ -92,7 +92,8 @@ window_timing = 0
 window_progress_bar = 0
 reference_data = []
 data_collected = []
-split_times = [-1 for _ in range(4)]
+num_splits = config.getint("SPLITS", "splitnumber")
+split_times = [-1 for _ in range(num_splits + 1)]
 button_open_timing = 0
 button_open_map = 0
 
@@ -523,10 +524,9 @@ def searchNearest(list, searched, left, right):
 
 
 class ProgressBarWindow:
-    def __init__(self, name="Rally Timing - Progress Bar", x=60, y=640):
+    def __init__(self, name="Rally Timing - Progress Bar"):
         self.name = name
         self.window = ac.newApp(name)
-        ac.setSize(self.window, x, y)
         ac.setIconPosition(self.window, 16000, 16000)
 
         self.isActivated = False
@@ -539,23 +539,28 @@ class ProgressBarWindow:
         ac.drawBorder(self.window, 0)
         ac.setBackgroundOpacity(self.window, 0)
 
-        self.barWidth = (x - 42) / 2
-        self.barHeight = y - 40
-        self.windowWidth = x
-        self.windowHeight = y
+        self.padding_top = 20
+        self.barWidth = config.getint("PROGRESSBAR", "progressbarwidth")
+        self.barHeight = config.getint("PROGRESSBAR", "progressbarheight")
+        self.windowWidth = self.barWidth + 40
+        self.windowHeight = self.barHeight + 2 * self.padding_top
 
-        self.splits = 3
+        self.splits = config.getint("SPLITS", "splitnumber")
+
+        self.transparency = config.getint("PROGRESSBAR", "progresstransparency") / 100
 
         self.finishLine = ac.addLabel(self.window, "")
-        ac.setPosition(self.finishLine, x/2 - 15, 18)
-        ac.setSize(self.finishLine, 30, 5)
+        ac.setPosition(self.finishLine, self.windowWidth/2 - self.barWidth * 1.5, self.padding_top - int(self.barWidth / 2))
+        ac.setSize(self.finishLine, int(self.barWidth * 3), int(self.barWidth / 2))
         ac.setBackgroundTexture(self.finishLine, "apps/python/RallyTiming/gui/finish.png")
 
         self.renderFunction = self.render
         ac.addRenderCallback(self.window, self.renderFunction)
 
+        ac.setSize(self.window, self.windowWidth, self.windowHeight)
+
     def render(self, *args):
-        ac.glColor4f(*white)
+        ac.glColor4f(*white[:3], self.transparency)
         ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, 20, self.barWidth, self.barHeight)  # X, Y, width, height
 
         splinePos = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
@@ -565,7 +570,7 @@ class ProgressBarWindow:
         # color splits
         for i in range(1, int((splinePos - StartSpline) / (FinishSpline - StartSpline) * (self.splits + 1)) + 1):
             # find if split was faster or slower
-            searchPos = (FinishSpline - StartSpline) * i / 4 + StartSpline
+            searchPos = (FinishSpline - StartSpline) * i / (self.splits + 1) + StartSpline
             ref_timepoints = searchNearest(data_collected, searchPos, 0, len(data_collected) - 1)
 
             # interpolate between the two known timepoints
@@ -574,9 +579,9 @@ class ProgressBarWindow:
             except ZeroDivisionError:
                 # fallback when only one point is found
                 split_i = ref_timepoints[0][1]
-            ac.glColor4f(*green)
+            ac.glColor4f(*green[:3], self.transparency)
             if split_i - split_times[i - 1] - last_delta > 0:
-                ac.glColor4f(*red)
+                ac.glColor4f(*red[:3], self.transparency)
 
             last_delta = split_i - split_times[i - 1]
             ac.glBegin(1)
@@ -585,7 +590,7 @@ class ProgressBarWindow:
 
         # draw split positions
         for i in range(1, (self.splits + 1)):
-            ac.glColor4f(*white)
+            ac.glColor4f(*white[:3], self.transparency)
             ac.glBegin(1)
             ac.glQuad(self.windowWidth / 2 - (self.barWidth * 3) / 2, self.barHeight * i / (self.splits + 1) + 20, self.barWidth * 3, 2)
             ac.glEnd()
@@ -593,7 +598,7 @@ class ProgressBarWindow:
 
         MapPosition = min(40 + self.barHeight - (self.barHeight * (splinePos - StartSpline) / (FinishSpline - StartSpline)), self.windowHeight - self.barWidth)
 
-        ac.glColor4f(*red)
+        ac.glColor4f(*red[:3], self.transparency)
 
         ac.glBegin(3)
         ac.glVertex2f(self.windowWidth / 2, MapPosition + self.barWidth)
@@ -865,8 +870,8 @@ def read_reference_file(path):
     ac.setText(window_timing.label_ref, "Target:   " + str(int(reference_stage_time_int // 60000)).zfill(2) + ":" + str(int((reference_stage_time_int % 60000) // 1000)).zfill(2) + "." + str(int(reference_stage_time_int % 1000)).zfill(3))
 
     # add split times
-    for i in range(3):
-        searchPos = (FinishSpline - StartSpline) * (i + 1) / 4 + StartSpline
+    for i in range(num_splits):
+        searchPos = (FinishSpline - StartSpline) * (i + 1) / (num_splits + 1) + StartSpline
         ref_timepoints = searchNearest(ret, searchPos, 0, len(ret) - 1)
 
         # interpolate between the two known timepoints
@@ -875,10 +880,10 @@ def read_reference_file(path):
         except ZeroDivisionError:
             # fallback when only one point is found
             split_i = ref_timepoints[0][1]
-        split_times[i] = split_i
-    split_times[3] = reference_stage_time_int
-    ac.log(str(split_times))
 
+        split_times[i] = split_i
+    split_times[num_splits] = reference_stage_time_int
+    ac.log(str(split_times))
     return ret
 
 
