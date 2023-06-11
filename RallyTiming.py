@@ -560,7 +560,7 @@ class ProgressBarWindow:
         ac.setSize(self.window, self.windowWidth, self.windowHeight)
 
     def render(self, *args):
-        ac.glColor4f(*white[:3], self.transparency)
+        ac.glColor4f(1, 1, 1, self.transparency)
         ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, 20, self.barWidth, self.barHeight)  # X, Y, width, height
 
         splinePos = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
@@ -579,9 +579,9 @@ class ProgressBarWindow:
             except ZeroDivisionError:
                 # fallback when only one point is found
                 split_i = ref_timepoints[0][1]
-            ac.glColor4f(*green[:3], self.transparency)
+            ac.glColor4f(0, 1, 0, self.transparency)
             if split_i - split_times[i - 1] - last_delta > 0:
-                ac.glColor4f(*red[:3], self.transparency)
+                ac.glColor4f(1, 0, 0, self.transparency)
 
             last_delta = split_i - split_times[i - 1]
             ac.glBegin(1)
@@ -590,7 +590,7 @@ class ProgressBarWindow:
 
         # draw split positions
         for i in range(1, (self.splits + 1)):
-            ac.glColor4f(*white[:3], self.transparency)
+            ac.glColor4f(1, 1, 1, self.transparency)
             ac.glBegin(1)
             ac.glQuad(self.windowWidth / 2 - (self.barWidth * 3) / 2, self.barHeight * i / (self.splits + 1) + 20, self.barWidth * 3, 2)
             ac.glEnd()
@@ -598,7 +598,7 @@ class ProgressBarWindow:
 
         MapPosition = min(40 + self.barHeight - (self.barHeight * (splinePos - StartSpline) / (FinishSpline - StartSpline)), self.windowHeight - self.barWidth)
 
-        ac.glColor4f(*red[:3], self.transparency)
+        ac.glColor4f(1, 0, 0, self.transparency)
 
         ac.glBegin(3)
         ac.glVertex2f(self.windowWidth / 2, MapPosition + self.barWidth)
