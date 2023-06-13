@@ -31,7 +31,6 @@
 # TODO:                                             #
 # cleanup code                                      #
 # reset track data button                           #
-# add linear bar                                    #
 #                                                   #
 # interval for ref file creation                    #
 #####################################################
@@ -539,19 +538,19 @@ class ProgressBarWindow:
         ac.drawBorder(self.window, 0)
         ac.setBackgroundOpacity(self.window, 0)
 
-        self.padding_top = 20
         self.barWidth = config.getint("PROGRESSBAR", "progressbarwidth")
         self.barHeight = config.getint("PROGRESSBAR", "progressbarheight")
         self.windowWidth = self.barWidth + 40
+        self.padding_top = 20
         self.windowHeight = self.barHeight + 2 * self.padding_top
 
         self.splits = config.getint("SPLITS", "splitnumber")
-
         self.transparency = config.getint("PROGRESSBAR", "progresstransparency") / 100
-
+        self.show_splits = config.getboolean("PROGRESSBAR", "progresssplits")
+        
         self.finishLine = ac.addLabel(self.window, "")
-        ac.setPosition(self.finishLine, self.windowWidth/2 - self.barWidth * 1.5, self.padding_top - int(self.barWidth / 2))
-        ac.setSize(self.finishLine, int(self.barWidth * 3), int(self.barWidth / 2))
+        ac.setPosition(self.finishLine, int(self.windowWidth/2 - 15 * self.barWidth / 6) , self.padding_top - int(self.barWidth / 3))
+        ac.setSize(self.finishLine, int(self.barWidth * 5), int(5 * self.barWidth / 6))
         ac.setBackgroundTexture(self.finishLine, "apps/python/RallyTiming/gui/finish.png")
 
         self.renderFunction = self.render
@@ -560,46 +559,45 @@ class ProgressBarWindow:
         ac.setSize(self.window, self.windowWidth, self.windowHeight)
 
     def render(self, *args):
-        ac.glColor4f(1, 1, 1, self.transparency)
+        ac.glColor4f(*(white[:3] + (self.transparency,)))
         ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, 20, self.barWidth, self.barHeight)  # X, Y, width, height
 
         splinePos = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
 
         last_delta = 0
 
-        # color splits
-        for i in range(1, int((splinePos - StartSpline) / (FinishSpline - StartSpline) * (self.splits + 1)) + 1):
-            # find if split was faster or slower
-            searchPos = (FinishSpline - StartSpline) * i / (self.splits + 1) + StartSpline
-            ref_timepoints = searchNearest(data_collected, searchPos, 0, len(data_collected) - 1)
+        if self.show_splits:
+            # color splits
+            for i in range(1, int((splinePos - StartSpline) / (FinishSpline - StartSpline) * (self.splits + 1)) + 1):
+                # find if split was faster or slower
+                searchPos = (FinishSpline - StartSpline) * i / (self.splits + 1) + StartSpline
+                ref_timepoints = searchNearest(data_collected, searchPos, 0, len(data_collected) - 1)
 
-            # interpolate between the two known timepoints
-            try:
-                split_i = ((searchPos - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1]
-            except ZeroDivisionError:
-                # fallback when only one point is found
-                split_i = ref_timepoints[0][1]
-            ac.glColor4f(0, 1, 0, self.transparency)
-            if split_i - split_times[i - 1] - last_delta > 0:
-                ac.glColor4f(1, 0, 0, self.transparency)
+                # interpolate between the two known timepoints
+                try:
+                    split_i = ((searchPos - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1]
+                except ZeroDivisionError:
+                    # fallback when only one point is found
+                    split_i = ref_timepoints[0][1]
+                ac.glColor4f(*(green[:3] + (self.transparency,)))
+                if split_i - split_times[i - 1] - last_delta > 0:
+                    ac.glColor4f(*(red[:3] + (self.transparency,)))
 
-            last_delta = split_i - split_times[i - 1]
-            ac.glBegin(1)
-            ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth, self.barHeight / (self.splits + 1))
-            ac.glEnd()
+                last_delta = split_i - split_times[i - 1]
+                ac.glBegin(1)
+                ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth, self.barHeight / (self.splits + 1))
+                ac.glEnd()
 
-        # draw split positions
-        for i in range(1, (self.splits + 1)):
-            ac.glColor4f(1, 1, 1, self.transparency)
-            ac.glBegin(1)
-            ac.glQuad(self.windowWidth / 2 - (self.barWidth * 3) / 2, self.barHeight * i / (self.splits + 1) + 20, self.barWidth * 3, 2)
-            ac.glEnd()
+            # draw split positions
+            for i in range(1, (self.splits + 1)):
+                ac.glColor4f(*(white[:3] + (self.transparency,)))
+                ac.glBegin(1)
+                ac.glQuad(self.windowWidth/2 - (self.barWidth*3)/2 , self.padding_top + self.barHeight - (i * self.barHeight/(self.splits + 1)) - self.barWidth/6 , self.barWidth*3 , self.barWidth/3)
+                ac.glEnd()
+
         # draw car position
-
-        MapPosition = min(40 + self.barHeight - (self.barHeight * (splinePos - StartSpline) / (FinishSpline - StartSpline)), self.windowHeight - self.barWidth)
-
-        ac.glColor4f(1, 0, 0, self.transparency)
-
+        MapPosition = self.padding_top + self.barHeight - (self.barHeight * ((splinePos - StartSpline) / (FinishSpline - StartSpline)))
+        ac.glColor4f(*(red[:3] + (self.transparency,)))
         ac.glBegin(3)
         ac.glVertex2f(self.windowWidth / 2, MapPosition + self.barWidth)
         ac.glVertex2f(self.windowWidth / 2 - self.barWidth, MapPosition)
