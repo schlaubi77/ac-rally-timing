@@ -1,7 +1,7 @@
 #####################################################
-# Rally Timing v1.5.0                               #
+# Rally Timing v1.5.0 - INDEV                       #
 #                                                   #
-# Copyright wimdes & schlaubi77 11/06/2023          #
+# Copyright wimdes & schlaubi77 13/06/2023          #
 # Released under the terms of GPLv3                 #
 # thx to Hecrer, PleaseStopThis, KubaV383, GPT-4    #
 #                                                   #
@@ -95,6 +95,9 @@ num_splits = config.getint("SPLITS", "splitnumber")
 split_times = [-1 for _ in range(num_splits + 1)]
 button_open_timing = 0
 button_open_map = 0
+button_expand_main = 0
+main_expanded = False
+appWindowSize = (0, 0)
 
 if not os.path.exists(ReferenceFolder):
     os.makedirs(ReferenceFolder)
@@ -137,34 +140,41 @@ ac.console(AppName + ": Track Name: " + TrackName)
 
 
 def acMain(ac_version):
-    global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow, button_open_timing, window_progress_bar
+    global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow, button_open_timing, button_open_map, button_expand_main, window_progress_bar, appWindowSize
 
     appWindow = ac.newApp(AppName + " - Main")
 
     if not DebugMode:
         if not ShowFuel:
-            ac.setSize(appWindow, 373, 120)   # default is 373,92
-            appWindowHeight = 120
+            appWindowSize = (373, 100)
         else:
-            ac.setSize(appWindow, 373, 140)
-            appWindowHeight = 140
+            appWindowSize = (373, 120)
     else:
-        ac.setSize(appWindow, 580, 200)
-        appWindowHeight = 200
+        appWindowSize = (580, 180)
+
+    ac.setSize(appWindow, *appWindowSize)
+
     ac.setTitle(appWindow, "")
     ac.drawBorder(appWindow, 0)
     ac.setIconPosition(appWindow, 0, -10000)
     ac.setBackgroundOpacity(appWindow, 0.4)
 
     button_open_timing = ac.addButton(appWindow, lang["button.opentiming"])
-    ac.setPosition(button_open_timing, 10, appWindowHeight - 30)
+    ac.setPosition(button_open_timing, 10, appWindowSize[1])
     ac.setSize(button_open_timing, 130, 25)
+    ac.setVisible(button_open_timing, 0)
     ac.addOnClickedListener(button_open_timing, toggle_timing_window)
 
     button_open_map = ac.addButton(appWindow, lang["button.openmap"])
-    ac.setPosition(button_open_map, 150, appWindowHeight - 30)
+    ac.setPosition(button_open_map, 150, appWindowSize[1])
     ac.setSize(button_open_map, 130, 25)
+    ac.setVisible(button_open_map, 0)
     ac.addOnClickedListener(button_open_map, toggle_map)
+
+    button_expand_main = ac.addButton(appWindow, "")
+    ac.setPosition(button_expand_main, 100, appWindowSize[1] - 10)
+    ac.setSize(button_expand_main, 173, 5)
+    ac.addOnClickedListener(button_expand_main, toggle_button_display)
 
     window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
     window_timing = TimingWindow()
@@ -1015,5 +1025,20 @@ def fix_reffile_amount_and_choose_fastest():
 def toggle_timing_window(*args):
     window_timing.toggleVisibility()
 
+
 def toggle_map(*args):
     window_progress_bar.toggleVisibility()
+
+
+def toggle_button_display(*args):
+    global main_expanded
+    if main_expanded:
+        ac.setVisible(button_open_map, 0)
+        ac.setVisible(button_open_timing, 0)
+        ac.setSize(appWindow, *appWindowSize)
+        main_expanded = False
+    else:
+        ac.setVisible(button_open_map, 1)
+        ac.setVisible(button_open_timing, 1)
+        ac.setSize(appWindow, appWindowSize[0], appWindowSize[1] + 30)
+        main_expanded = True
