@@ -1,5 +1,5 @@
 #######################################################################
-# Rally Timing v1.50                                                  #
+# Rally Timing v1.51                                                  #
 #                                                                     #
 # Copyright wimdes & schlaubi77 15/06/2023                            #
 # Released under the terms of GPLv3                                   #
@@ -8,6 +8,7 @@
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.51 add another window, containing section delta pop-ups          #
 # v1.50 add linear map display showing split timing & progress        #
 #       fix replay messing up reference files                         #
 # v1.42 added buttons to toggle the sub-apps                          #
@@ -89,6 +90,7 @@ ReferenceFolder = "apps/python/RallyTiming/referenceLaps/" + TrackName
 window_choose_reference = 0
 window_timing = 0
 window_progress_bar = 0
+window_split_notification = 0
 reference_data = []
 data_collected = []
 num_splits = config.getint("SPLITS", "splitnumber")
@@ -142,7 +144,7 @@ ac.console(AppName + ": Track Name: " + TrackName)
 
 
 def acMain(ac_version):
-    global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow, button_open_timing, button_open_map, button_expand_main, window_progress_bar, appWindowSize
+    global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow, button_open_timing, button_open_map, button_expand_main, window_progress_bar, appWindowSize, window_split_notification
 
     appWindow = ac.newApp(AppName + " - Main")
 
@@ -178,8 +180,8 @@ def acMain(ac_version):
     ac.setSize(button_expand_main, 173, 5)
     ac.addOnClickedListener(button_expand_main, toggle_button_display)
 
-    window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps",
-                                                    "apps/python/RallyTiming/referenceLaps/" + TrackName)
+    window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
+    window_split_notification = SplitNotificationWindow()
     window_timing = TimingWindow()
     window_progress_bar = ProgressBarWindow()
 
@@ -350,10 +352,6 @@ def acUpdate(deltaT):
             StartSpline) + "  FinishSpline: {:.5f}".format(FinishSpline))
         ac.setText(line6, "XYStartDistance: {:.2f}".format(XYStartDistance()) + "  LapCount: {}".format(
             LapCount) + "  SpeedTrapValue: {}".format(SpeedTrapValue))
-
-
-def appGL(deltaT):
-    window_progress_bar.do_GL()
 
 
 def XYStartDistance():
@@ -606,13 +604,12 @@ class ProgressBarWindow:
         last_delta = 0
 
         if self.show_splits:
+            current_sector = int((splinePos - StartSpline) / (FinishSpline - StartSpline) * (self.splits + 1)) + 1
             # color splits
-            for i in range(1, int((splinePos - StartSpline) / (FinishSpline - StartSpline) * (self.splits + 1)) + 1):
+            for i in range(1, current_sector):
                 # find if split was faster or slower
                 searchPos = (FinishSpline - StartSpline) * i / (self.splits + 1) + StartSpline
                 ref_timepoints = searchNearest(data_collected, searchPos, 0, len(data_collected) - 1)
-
-                #                ac.console(str(i) + " searchpos: " + str(searchPos) + " ref_timepoints: " + str(ref_timepoints))
 
                 # interpolate between the two known timepoints
                 try:
@@ -624,10 +621,6 @@ class ProgressBarWindow:
                 ac.glColor4f(*(green[:3] + (self.transparency,)))
                 if split_i - split_times[i - 1] - last_delta > 0:
                     ac.glColor4f(*(red[:3] + (self.transparency,)))
-
-                #                ac.console(str(i) + " split_i: " + str(split_i) + " last_delta: " + str(last_delta))
-                #                ac.console(str(i) + " split_times: " + str(split_times))
-                #                ac.console("-------------------------------------------------")
 
                 last_delta = split_i - split_times[i - 1]
                 ac.glBegin(1)
@@ -645,9 +638,10 @@ class ProgressBarWindow:
                           self.barWidth / 3)
                 ac.glEnd()
 
+            window_split_notification.update(last_delta, current_sector)
+
         # draw car position
-        MapPosition = self.padding_top + self.barHeight - (
-                    self.barHeight * ((splinePos - StartSpline) / (FinishSpline - StartSpline)))
+        MapPosition = self.padding_top + self.barHeight - (self.barHeight * ((splinePos - StartSpline) / (FinishSpline - StartSpline)))
         ac.glColor4f(*(red[:3] + (min(self.transparency + 0.2, 1),)))
         ac.glBegin(3)
         ac.glVertex2f(self.windowWidth / 2, MapPosition + self.barWidth)
@@ -655,6 +649,64 @@ class ProgressBarWindow:
         ac.glVertex2f(self.windowWidth / 2, MapPosition - self.barWidth)
         ac.glVertex2f(self.windowWidth / 2 + self.barWidth, MapPosition)
         ac.glEnd()
+
+    def on_activate(self, *args):
+        self.isActivated = True
+
+    def on_deactivate(self, *args):
+        self.isActivated = False
+
+    def toggleVisibility(self):
+        self.isActivated = not self.isActivated
+        ac.setVisible(self.window, int(self.isActivated))
+
+
+class SplitNotificationWindow:
+    def __init__(self, name="Rally Timing - Split Notifications"):
+        self.name = name
+        self.window = ac.newApp(name)
+        ac.setIconPosition(self.window, 16000, 16000)
+
+        self.isActivated = False
+        self.onActivate = self.on_activate
+        self.onDeactivate = self.on_deactivate
+        ac.addOnAppActivatedListener(self.window, self.onActivate)
+        ac.addOnAppDismissedListener(self.window, self.onDeactivate)
+
+        self.split_notification_duration = config.getint("SPLITS", "splitnotificationduration")
+
+        ac.setTitle(self.window, "")
+        ac.setSize(self.window, 200, 50)
+        ac.drawBorder(self.window, 0)
+        ac.setBackgroundOpacity(self.window, 0.05)
+
+        self.last_current_sector = 1
+        self.last_time_shown = 2000000000
+
+        self.label_split = ac.addLabel(self.window, "")
+        ac.setPosition(self.label_split, 20, 5)
+        ac.setFontSize(self.label_split, 20)
+
+    def update(self, delta, current_sector):
+        if current_sector > self.last_current_sector:
+            if Status == 4:
+                delta = info.graphics.iLastTime - reference_stage_time_int
+
+            decimals = str(round(abs(delta) % 1000, -3 + DeltaDecimalDigits)).zfill(3)[:DeltaDecimalDigits]
+            seconds = str(int(abs(delta) // 1000))
+            if delta > 0:
+                separator = '+'
+                ac.setFontColor(self.label_split, *red)
+            else:
+                separator = '-'
+                ac.setFontColor(self.label_split, *green)
+
+            ac.setText(self.label_split, "DIFF: " + separator + seconds + "." + decimals)
+            self.last_time_shown = info.graphics.sessionTimeLeft
+            self.last_current_sector = current_sector
+
+        if self.split_notification_duration * 2000 > self.last_time_shown - info.graphics.sessionTimeLeft > self.split_notification_duration * 1000:
+            ac.setText(self.label_split, "")
 
     def on_activate(self, *args):
         self.isActivated = True

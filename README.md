@@ -1,6 +1,6 @@
 # AC Rally timing app (by schlaubi77 & wimdes)
 
-## Version 1.5.0 (11/06/2023)
+## Version 1.5.1 (15/06/2023)
 
 ***
 
