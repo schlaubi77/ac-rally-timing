@@ -674,9 +674,15 @@ class SplitNotificationWindow:
         ac.addOnAppDismissedListener(self.window, self.onDeactivate)
 
         self.split_notification_duration = config.getint("SPLITS", "splitnotificationduration")
+        self.split_notification_size = config.getint("SPLITS", "splitnotificationsize") / 100
+        
+        self.default_fontsize = 20
+        self.padding = 12
+        self.windowWidth = self.split_notification_size * 120  + 2 * self.padding
+        self.windowHeight = self.split_notification_size * self.default_fontsize + 2 * self.padding
 
         ac.setTitle(self.window, "")
-        ac.setSize(self.window, 200, 50)
+        ac.setSize(self.window, self.windowWidth, self.windowHeight)
         ac.drawBorder(self.window, 0)
         ac.setBackgroundOpacity(self.window, 0.05)
 
@@ -684,8 +690,8 @@ class SplitNotificationWindow:
         self.last_time_shown = 2000000000
 
         self.label_split = ac.addLabel(self.window, "")
-        ac.setPosition(self.label_split, 20, 5)
-        ac.setFontSize(self.label_split, 20)
+        ac.setPosition(self.label_split, self.padding, self.padding/2)
+        ac.setFontSize(self.label_split, self.default_fontsize * self.split_notification_size)
 
     def update(self, delta, current_sector):
         if current_sector > self.last_current_sector:
@@ -704,9 +710,10 @@ class SplitNotificationWindow:
             ac.setText(self.label_split, "DIFF: " + separator + seconds + "." + decimals)
             self.last_time_shown = info.graphics.sessionTimeLeft
             self.last_current_sector = current_sector
-
-        if self.split_notification_duration * 2000 > self.last_time_shown - info.graphics.sessionTimeLeft > self.split_notification_duration * 1000:
-            ac.setText(self.label_split, "")
+        
+        if Status != 4:
+            if self.split_notification_duration * 2000 > self.last_time_shown - info.graphics.sessionTimeLeft > self.split_notification_duration * 1000:
+                ac.setText(self.label_split, "")
 
     def on_activate(self, *args):
         self.isActivated = True
