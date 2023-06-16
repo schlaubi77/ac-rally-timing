@@ -287,14 +287,7 @@ def acUpdate(deltaT):
 
     # reset to before start line => reset
     if Status in (3, 4, 5) and ActualSpline < StartSpline:
-        data_collected = []
-        Status = 2  # Drive to start
-        LapCountTracker = LapCount
-        ac.setFontColor(line1, *white)
-        StartSpeed = 0
-        SpeedTrapValue = 0
-        StartChecked = False
-        StatusList[4] = lang["phase.finished"]
+        reset()
         if CheckFastestTime:
             fix_reffile_amount_and_choose_fastest()
             CheckFastestTime = False
@@ -1159,3 +1152,15 @@ def toggle_button_display(*args):
         ac.setVisible(button_open_timing, 1)
         ac.setSize(appWindow, appWindowSize[0], appWindowSize[1] + 30)
         main_expanded = True
+
+
+def reset():
+    global data_collected, Status, LapCountTracker, StartSpeed, SpeedTrapValue, StartChecked, StatusList
+    data_collected = []
+    Status = 2  # Drive to start
+    LapCountTracker = ac.getCarState(0, acsys.CS.LapCount)
+    ac.setFontColor(line1, *white)
+    StartSpeed = 0
+    SpeedTrapValue = 0
+    StartChecked = False
+    StatusList[4] = lang["phase.finished"]
