@@ -69,10 +69,11 @@ SplineLength = ac.getTrackLength(0)
 Status = 0  # 0 = Start Undefined, 1 = Start Found, 2 = Drive to start, 3 = in stage, 4 = over finish, 5 = invalidated, 6 = stopped at startline
 StatusList = [lang["phase.detect"], lang["phase.linefound"], lang["phase.gotostart"], lang["phase.instage"],
               lang["phase.finished"], lang["phase.invalidated"], lang["phase.atstartline"]]
-StartSpeed = 0
+
 LapCountTracker = 0
 StartPositionAccuracy = 0
 Meter = 1 / SplineLength
+StartSpeed = 0
 SpeedTrapValue = 0
 StartChecked = False
 reference_stage_time_int = 0
@@ -134,8 +135,6 @@ line1, line2, line3, line4, line5, line6 = [0 for i in range(6)]
 
 ###### write some stuff into log and console
 ac.console(AppName + ": Track Name: " + TrackName)
-
-
 # ac.console (AppName + ": Start Spline: {:.10f}".format(StartSpline))
 # ac.console (AppName + ": Finish Spline: {:.10f}".format(FinishSpline))
 # ac.console (AppName + ": Meter: {:.10f}".format(Meter))
@@ -144,7 +143,9 @@ ac.console(AppName + ": Track Name: " + TrackName)
 
 
 def acMain(ac_version):
-    global line1, line2, line3, line4, line5, line6, window_choose_reference, window_timing, appWindow, button_open_timing, button_open_map, button_expand_main, window_progress_bar, appWindowSize, window_split_notification
+    global line1, line2, line3, line4, line5, line6, appWindow, appWindowSize
+    global window_timing, window_progress_bar, window_split_notification, window_choose_reference
+    global button_open_timing, button_open_map, button_open_reference, button_open_notifications, button_expand_main
 
     appWindow = ac.newApp(AppName + " - Main")
 
@@ -165,19 +166,31 @@ def acMain(ac_version):
 
     button_open_timing = ac.addButton(appWindow, lang["button.opentiming"])
     ac.setPosition(button_open_timing, 10, appWindowSize[1])
-    ac.setSize(button_open_timing, 130, 25)
+    ac.setSize(button_open_timing, 150, 25)
     ac.setVisible(button_open_timing, 0)
     ac.addOnClickedListener(button_open_timing, toggle_timing_window)
 
     button_open_map = ac.addButton(appWindow, lang["button.openmap"])
-    ac.setPosition(button_open_map, 150, appWindowSize[1])
-    ac.setSize(button_open_map, 130, 25)
+    ac.setPosition(button_open_map, 170, appWindowSize[1])
+    ac.setSize(button_open_map, 150, 25)
     ac.setVisible(button_open_map, 0)
     ac.addOnClickedListener(button_open_map, toggle_map)
 
+    button_open_reference = ac.addButton(appWindow, lang["button.openreference"])
+    ac.setPosition(button_open_reference, 10, appWindowSize[1] + 34)
+    ac.setSize(button_open_reference, 310, 25)
+    ac.setVisible(button_open_reference, 0)
+    ac.addOnClickedListener(button_open_reference, toggle_reference)
+    
+    button_open_notifications = ac.addButton(appWindow, lang["button.opennotifications"])
+    ac.setPosition(button_open_notifications, 10, appWindowSize[1] + 68)
+    ac.setSize(button_open_notifications, 310, 25)
+    ac.setVisible(button_open_notifications, 0)
+    ac.addOnClickedListener(button_open_notifications, toggle_notifications)
+
     button_expand_main = ac.addButton(appWindow, "")
-    ac.setPosition(button_expand_main, 100, appWindowSize[1] - 10)
-    ac.setSize(button_expand_main, 173, 5)
+    ac.setPosition(button_expand_main, 0, 0)
+    ac.setSize(button_expand_main, 10, 10)
     ac.addOnClickedListener(button_expand_main, toggle_button_display)
 
     window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
@@ -270,15 +283,11 @@ def acUpdate(deltaT):
             Status = 5  # START FAIL - ONLINE LAP WILL BE INVALIDATED
             StatusList[4] = lang["phase.invalidatedserver"]
             ac.setFontColor(line1, *red)
-            ac.console(
-                AppName + ": Local StartSpeed: {:.2f}".format(StartSpeed) + " / Server StartSpeed: {:.2f}".format(
-                    SpeedTrapValue))
+            ac.console(AppName + ": Local StartSpeed: {:.2f}".format(StartSpeed) + " / Server StartSpeed: {:.2f}".format(SpeedTrapValue))
             StartChecked = True
         if Status == 3 and SpeedTrapValue <= StartSpeedLimit and not StartChecked:
             if SpeedTrapValue != 0:
-                ac.console(
-                    AppName + ": Local StartSpeed: {:.2f}".format(StartSpeed) + " / Server StartSpeed: {:.2f}".format(
-                        SpeedTrapValue))
+                ac.console(AppName + ": Local StartSpeed: {:.2f}".format(StartSpeed) + " / Server StartSpeed: {:.2f}".format(SpeedTrapValue))
                 StartChecked = True
     else:
         if Status == 3 and StartSpeed > StartSpeedLimit:
@@ -287,7 +296,10 @@ def acUpdate(deltaT):
 
     # reset to before start line => reset
     if Status in (3, 4, 5) and ActualSpline < StartSpline:
-        reset()
+        LapCountTracker = ac.getCarState(0, acsys.CS.LapCount)
+        Status = 2  # Drive to start
+        StatusList[4] = lang["phase.finished"]
+        reset_variables()
         if CheckFastestTime:
             fix_reffile_amount_and_choose_fastest()
             CheckFastestTime = False
@@ -427,7 +439,7 @@ class ChooseReferenceWindow:
 
 class TimingWindow:
 
-    def __init__(self, name="Rally Timing - Delta", x=200, y=118):
+    def __init__(self, name="Rally Timing - Delta", x=200, y=90):
         self.name = name
         self.window = ac.newApp(name)
         ac.setTitle(self.window, "")
@@ -447,12 +459,6 @@ class TimingWindow:
         self.label_delta = ac.addLabel(self.window, "Delta:   +0.000")
         ac.setPosition(self.label_delta, 20, 55)
         ac.setFontSize(self.label_delta, 20)
-
-        self.button_open_reference = ac.addButton(self.window, lang["button.openreference"])
-        ac.setPosition(self.button_open_reference, 10, 88)
-        ac.setSize(self.button_open_reference, 180, 25)
-        self.openReference = self.open_reference
-        ac.addOnClickedListener(self.button_open_reference, self.openReference)
 
         self.isActivated = False
         self.onActivate = self.on_activate
@@ -478,7 +484,7 @@ class TimingWindow:
             ac.setText(self.label_time,
                        "Current: " + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(
                            2) + "." + str(int(time % 1000)).zfill(3))
-            delta = time - reference_stage_time_int
+            delta = int(time - reference_stage_time_int)
             decimals = str(round(((abs(delta) % 1000) / 1000), 3))[2:].zfill(3)
             seconds = str(int(abs(delta) // 1000))
 
@@ -510,9 +516,8 @@ class TimingWindow:
         delta = int(time - ref_time)
 
         seconds = str(abs(delta) // 1000)
-        decimal = str(round(abs(delta) % 1000, -3 + DeltaDecimalDigits)).zfill(3)[:DeltaDecimalDigits]
-        #        ac.log("i" + str((abs(delta) % 1000)))
-        #        ac.log("d" + decimal)
+        decimals = str(round(abs(delta) % 1000, -3 + DeltaDecimalDigits)).zfill(3)[:DeltaDecimalDigits]
+
         if delta >= 0:
             ac.setFontColor(self.label_delta, *red)
             indicator = "+"
@@ -520,7 +525,7 @@ class TimingWindow:
             ac.setFontColor(self.label_delta, *green)
             indicator = "-"
 
-        ac.setText(self.label_delta, "Delta:     " + indicator + seconds + "." + decimal)
+        ac.setText(self.label_delta, "Delta:     " + indicator + seconds + "." + decimals)
 
     def on_activate(self, *args):
         self.isActivated = True
@@ -531,9 +536,6 @@ class TimingWindow:
     def toggleVisibility(self):
         self.isActivated = not self.isActivated
         ac.setVisible(self.window, int(self.isActivated))
-
-    def open_reference(self, *args):
-        window_choose_reference.toggleVisibility()
 
 
 def searchNearest(list, searched, left, right):
@@ -595,6 +597,7 @@ class ProgressBarWindow:
         splinePos = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
 
         last_delta = 0
+        split_delta_values = []
 
         if self.show_splits:
             current_sector = int((splinePos - StartSpline) / (FinishSpline - StartSpline) * (self.splits + 1)) + 1
@@ -616,6 +619,10 @@ class ProgressBarWindow:
                     ac.glColor4f(*(red[:3] + (self.transparency,)))
 
                 last_delta = split_i - split_times[i - 1]
+                
+#                split_delta_values.append("{:.3f}".format(last_delta/1000))
+#                ac.console(str(split_delta_values))
+                
                 ac.glBegin(1)
                 ac.glQuad(self.windowWidth / 2 - self.barWidth / 2,
                           int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth,
@@ -668,6 +675,7 @@ class SplitNotificationWindow:
 
         self.split_notification_duration = config.getint("SPLITS", "splitnotificationduration")
         self.split_notification_size = config.getint("SPLITS", "splitnotificationsize") / 100
+        self.split_notification_transparency = config.getint("SPLITS", "splitnotificationtransparency") / 100
         
         self.default_fontsize = 20
         self.padding = 12
@@ -677,7 +685,7 @@ class SplitNotificationWindow:
         ac.setTitle(self.window, "")
         ac.setSize(self.window, self.windowWidth, self.windowHeight)
         ac.drawBorder(self.window, 0)
-        ac.setBackgroundOpacity(self.window, 0.05)
+        ac.setBackgroundOpacity(self.window, self.split_notification_transparency)
 
         self.last_current_sector = 1
         self.last_time_shown = 2000000000
@@ -687,12 +695,15 @@ class SplitNotificationWindow:
         ac.setFontSize(self.label_split, self.default_fontsize * self.split_notification_size)
 
     def update(self, delta, current_sector):
+        if len(reference_data) == 0:
+            return
+
         if current_sector > self.last_current_sector:
             if Status == 4:
-                delta = info.graphics.iLastTime - reference_stage_time_int
-
-            decimals = str(round(abs(delta) % 1000, -3 + DeltaDecimalDigits)).zfill(3)[:DeltaDecimalDigits]
-            seconds = str(int(abs(delta) // 1000))
+                delta = int(info.graphics.iLastTime - reference_stage_time_int)
+    
+            decimals = str(round(abs(int(delta)) % 1000, -3 + DeltaDecimalDigits)).zfill(3)[:DeltaDecimalDigits]
+            seconds = str(abs(int(delta)) // 1000)
             if delta > 0:
                 separator = '+'
                 ac.setFontColor(self.label_split, *red)
@@ -703,9 +714,11 @@ class SplitNotificationWindow:
             ac.setText(self.label_split, "DIFF: " + separator + seconds + "." + decimals)
             self.last_time_shown = info.graphics.sessionTimeLeft
             self.last_current_sector = current_sector
-        
+
         if Status != 4:
             if self.split_notification_duration * 2000 > self.last_time_shown - info.graphics.sessionTimeLeft > self.split_notification_duration * 1000:
+                ac.setText(self.label_split, "")
+            if current_sector == 1:
                 ac.setText(self.label_split, "")
 
     def on_activate(self, *args):
@@ -990,7 +1003,8 @@ def read_reference_file(path):
 
         split_times[i] = split_i
     split_times[num_splits] = reference_stage_time_int
-    ac.log(str(split_times))
+#    ac.log(str(split_times))
+
     return ret
 
 
@@ -999,7 +1013,7 @@ def write_reference_file(origin_data, path, time):
         int(time % 1000)).zfill(3) + "_" + ac.getDriverName(0) + "_" + ac.getCarName(0).replace("_", "-") + ".refl"
     weather = get_weather()
     write = ["#Car: " + ac.getCarName(0),
-             "\n#Local date & time: " + datetime.now().strftime("%d-%m-%Y, %H:%M:%S"),
+             "\n#Local date & time: " + datetime.now().strftime("%d-%m-%Y, %H:%M"),
              "\n#In-game time: " + weather["GAMETIME"]["HOUR"],
              "\n#Driver: " + ac.getDriverName(0),
              "\n#Stage time: " + str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(
@@ -1140,27 +1154,38 @@ def toggle_map(*args):
     window_progress_bar.toggleVisibility()
 
 
+def toggle_reference(*args):
+    window_choose_reference.toggleVisibility()
+
+
+def toggle_notifications(*args):
+    window_split_notification.toggleVisibility()
+
+
 def toggle_button_display(*args):
     global main_expanded
     if main_expanded:
         ac.setVisible(button_open_map, 0)
         ac.setVisible(button_open_timing, 0)
+        ac.setVisible(button_open_reference, 0)
+        ac.setVisible(button_open_notifications, 0)
         ac.setSize(appWindow, *appWindowSize)
         main_expanded = False
     else:
         ac.setVisible(button_open_map, 1)
         ac.setVisible(button_open_timing, 1)
-        ac.setSize(appWindow, appWindowSize[0], appWindowSize[1] + 30)
+        ac.setVisible(button_open_reference, 1)
+        ac.setVisible(button_open_notifications, 1)
+        ac.setSize(appWindow, appWindowSize[0], appWindowSize[1] + 100)
         main_expanded = True
 
 
-def reset():
+def reset_variables():
     global data_collected, Status, LapCountTracker, StartSpeed, SpeedTrapValue, StartChecked, StatusList
     data_collected = []
-    Status = 2  # Drive to start
-    LapCountTracker = ac.getCarState(0, acsys.CS.LapCount)
     ac.setFontColor(line1, *white)
     StartSpeed = 0
     SpeedTrapValue = 0
     StartChecked = False
-    StatusList[4] = lang["phase.finished"]
+    window_split_notification.last_current_sector = 1
+    window_split_notification.last_time_shown = 2000000000

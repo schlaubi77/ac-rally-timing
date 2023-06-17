@@ -18,9 +18,10 @@
 		"otherdrivers": "Show other drivers",
 		"inbrack.estimated": "(Estimated)",
 		"inbrack.server": "(on server)",
-		"button.opentiming": "Open Timing",
-		"button.openreference": "Choose Delta Reference",
-		"button.openmap": "Open Map View"
+		"button.opentiming": "Show delta timing",
+		"button.openreference": "Choose reference lap",
+		"button.openmap": "Show progress bar",
+		"button.opennotifications": "Show notifications on splits"
 	},
 	"Spanish": {
 		"phase.detect": "DETECTANDO LÍNEA DE SALIDA",
@@ -43,7 +44,8 @@
 		"inbrack.server": "(En servidor)",
 		"button.opentiming": "translation missing",
 		"button.openreference": "translation missing",
-		"button.openmap": "translation missing"
+		"button.openmap": "translation missing",
+		"button.opennotifications": "Show notifications on splits"
 	},
 	"French": {
 		"phase.detect": "DÉTECTION LIGNE DE DÉPART",
@@ -66,7 +68,8 @@
 		"inbrack.server": "(au serveur)",
 		"button.opentiming": "translation missing",
 		"button.openreference": "translation missing",
-		"button.openmap": "translation missing"
+		"button.openmap": "translation missing",
+		"button.opennotifications": "Show notifications on splits"
 	},
 	"German": {
 		"phase.detect": "START WIRD GESUCHT",
@@ -89,6 +92,7 @@
 		"inbrack.server": "(vom Server)",
 		"button.opentiming": "Öffne die Zeitnahme",
 		"button.openreference": "Wähle die Referenzzeit",
-		"button.openmap": "Öffne die Kartenansicht"
+		"button.openmap": "Öffne die Kartenansicht",
+		"button.opennotifications": "Show notifications on splits"
 	}
 }
