@@ -127,7 +127,7 @@ with open(StartFinishJson, "r") as file:
         StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 0, "TrueLength": 0}
 
 white = (1, 1, 1, 1)
-grey = (0.75, 0.75, 0.75, 1)
+gray = (0.75, 0.75, 0.75, 1)
 green = (0, 1, 0, 1)
 red = (1, 0, 0, 1)
 
@@ -710,7 +710,7 @@ class SplitNotificationWindow:
                 ac.setText(self.label_split, "")
 
         if Status in (0, 1, 2):
-            ac.setFontColor(self.label_split, *grey)
+            ac.setFontColor(self.label_split, *gray)
             ac.setText(self.label_split, "DIFF: --.---")
 
     def on_activate(self, *args):
