@@ -1,7 +1,7 @@
 #######################################################################
 # Rally Timing v1.51                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 15/06/2023                            #
+# Copyright wimdes & schlaubi77 17/06/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, GPT-4          #
 #                                                                     #
@@ -127,7 +127,7 @@ with open(StartFinishJson, "r") as file:
         StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 0, "TrueLength": 0}
 
 white = (1, 1, 1, 1)
-gray = (0.75, 0.75, 0.75, 1)
+grey = (0.75, 0.75, 0.75, 1)
 green = (0, 1, 0, 1)
 red = (1, 0, 0, 1)
 
@@ -190,7 +190,9 @@ def acMain(ac_version):
 
     button_expand_main = ac.addButton(appWindow, "")
     ac.setPosition(button_expand_main, 0, 0)
-    ac.setSize(button_expand_main, 10, 10)
+    ac.drawBorder(button_expand_main, 0)
+    ac.setBackgroundOpacity(button_expand_main, 0)
+    ac.setSize(button_expand_main, 30, 30)
     ac.addOnClickedListener(button_expand_main, toggle_button_display)
 
     window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
@@ -475,17 +477,13 @@ class TimingWindow:
         if Status in (3, 5):
             time = info.graphics.iCurrentTime
             self._do_delta(time)
-            ac.setText(self.label_time,
-                       "Current: " + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(
-                           2) + "." + str(int(time % 1000)).zfill(3))
+            ac.setText(self.label_time, "Current: " + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
 
         if Status == 4:
             time = info.graphics.iLastTime
-            ac.setText(self.label_time,
-                       "Current: " + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(
-                           2) + "." + str(int(time % 1000)).zfill(3))
-            delta = int(time - reference_stage_time_int)
-            decimals = str(round(((abs(delta) % 1000) / 1000), 3))[2:].zfill(3)
+            ac.setText(self.label_time, "Current: " + str(int(time // 60000)).zfill(2) + ":" + str(int((time % 60000) // 1000)).zfill(2) + "." + str(int(time % 1000)).zfill(3))
+            delta = time - reference_stage_time_int
+            decimals = str(round(((abs(delta) % 1000)/1000), 3))[2:].zfill(3)
             seconds = str(int(abs(delta) // 1000))
 
             if delta > 0:
@@ -501,20 +499,16 @@ class TimingWindow:
             ac.setFontColor(self.label_delta, 1, 1, 1, 1)
             ac.setText(self.label_delta, "Delta:   +0.000")
             return
-        ref_timepoints = searchNearest(reference_data, ac.getCarState(0, acsys.CS.NormalizedSplinePosition), 0,
-                                       len(reference_data) - 1)
+        ref_timepoints = searchNearest(reference_data, ac.getCarState(0, acsys.CS.NormalizedSplinePosition), 0, len(reference_data) - 1)
 
         # interpolate between the two known timepoints
         try:
-            ref_time = ((ac.getCarState(0, acsys.CS.NormalizedSplinePosition) - ref_timepoints[0][0]) / (
-                        ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + \
-                       ref_timepoints[0][1]
+            ref_time = ((ac.getCarState(0, acsys.CS.NormalizedSplinePosition) - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1]
         except ZeroDivisionError:
             # fallback when only one point is found
             ref_time = ref_timepoints[0][1]
 
         delta = int(time - ref_time)
-
         seconds = str(abs(delta) // 1000)
         decimals = str(round(abs(delta) % 1000, -3 + DeltaDecimalDigits)).zfill(3)[:DeltaDecimalDigits]
 
@@ -524,7 +518,6 @@ class TimingWindow:
         else:
             ac.setFontColor(self.label_delta, *green)
             indicator = "-"
-
         ac.setText(self.label_delta, "Delta:     " + indicator + seconds + "." + decimals)
 
     def on_activate(self, *args):
@@ -609,8 +602,7 @@ class ProgressBarWindow:
 
                 # interpolate between the two known timepoints
                 try:
-                    split_i = ((searchPos - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (
-                                ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1]
+                    split_i = int(((searchPos - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1])
                 except ZeroDivisionError:
                     # fallback when only one point is found
                     split_i = ref_timepoints[0][1]
@@ -624,18 +616,14 @@ class ProgressBarWindow:
 #                ac.console(str(split_delta_values))
                 
                 ac.glBegin(1)
-                ac.glQuad(self.windowWidth / 2 - self.barWidth / 2,
-                          int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth,
-                          self.barHeight / (self.splits + 1))
+                ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth, self.barHeight / (self.splits + 1))
                 ac.glEnd()
 
             # draw split positions
             for i in range(1, (self.splits + 1)):
                 ac.glColor4f(*(white[:3] + (self.transparency,)))
                 ac.glBegin(1)
-                ac.glQuad(self.windowWidth / 2 - (self.barWidth * 3) / 2, self.padding_top + self.barHeight - (
-                            i * self.barHeight / (self.splits + 1)) - self.barWidth / 6, self.barWidth * 3,
-                          self.barWidth / 3)
+                ac.glQuad(self.windowWidth / 2 - (self.barWidth * 3) / 2, self.padding_top + self.barHeight - (i * self.barHeight / (self.splits + 1)) - self.barWidth / 6, self.barWidth * 3, self.barWidth / 3)
                 ac.glEnd()
 
             window_split_notification.update(last_delta, current_sector)
@@ -720,6 +708,10 @@ class SplitNotificationWindow:
                 ac.setText(self.label_split, "")
             if current_sector == 1:
                 ac.setText(self.label_split, "")
+
+        if Status in (0, 1, 2):
+            ac.setFontColor(self.label_split, *grey)
+            ac.setText(self.label_split, "DIFF: --.---")
 
     def on_activate(self, *args):
         self.isActivated = True

@@ -42,10 +42,10 @@
 		"otherdrivers": "Mostrar otros pilotos",
 		"inbrack.estimated": "(Estimado)",
 		"inbrack.server": "(En servidor)",
-		"button.opentiming": "translation missing",
-		"button.openreference": "translation missing",
-		"button.openmap": "translation missing",
-		"button.opennotifications": "Show notifications on splits"
+		"button.opentiming": "Tiempos delta",
+		"button.openreference": "Elegir tiempo de referencia",
+		"button.openmap": "Barra de progreso",
+		"button.opennotifications": "Mostrar notificaciones parciales"
 	},
 	"French": {
 		"phase.detect": "DÉTECTION LIGNE DE DÉPART",
@@ -66,10 +66,10 @@
 		"otherdrivers": "Montrer autres pilotes",
 		"inbrack.estimated": "(Estimée)",
 		"inbrack.server": "(au serveur)",
-		"button.opentiming": "translation missing",
-		"button.openreference": "translation missing",
-		"button.openmap": "translation missing",
-		"button.opennotifications": "Show notifications on splits"
+		"button.opentiming": "Afficher temps delta",
+		"button.openreference": "Choix chrono de référence",
+		"button.openmap": "Barre de progression",
+		"button.opennotifications": "Notifications sur les écarts"
 	},
 	"German": {
 		"phase.detect": "START WIRD GESUCHT",
@@ -84,15 +84,15 @@
 		"startdist": "Entfernung zum Start: ",
 		"finishdist": "Entfernung zum Ziel: ",
 		"startspeed": "Startgeschwindigkeit: ",
-		"startspeedlimit": "Höchstmögliche Startgeschwindigkeit: ",
+		"startspeedlimit": "Maximale Startgeschwindigkeit: ",
 		"time": "Zeit: ",
 		"othercars": "Zeige andere Fahrzeuge",
 		"otherdrivers": "Zeige andere Fahrer",
 		"inbrack.estimated": "(Geschätzt)",
 		"inbrack.server": "(vom Server)",
-		"button.opentiming": "Öffne die Zeitnahme",
-		"button.openreference": "Wähle die Referenzzeit",
-		"button.openmap": "Öffne die Kartenansicht",
-		"button.opennotifications": "Show notifications on splits"
+		"button.opentiming": "Öffne Zeitnahme",
+		"button.openreference": "Wähle Referenzzeit",
+		"button.openmap": "Öffne Kartenansicht",
+		"button.opennotifications": "Benachrichtigungen Splits anzeigen"
 	}
 }
