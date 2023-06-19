@@ -8,6 +8,8 @@
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.52 correct 'show splits' in config file, some metadat in .refl   #
+#       add buttons to reset start/finish data & delete .refl files   #
 # v1.51 add another window, containing section delta pop-ups          #
 # v1.50 add linear map display showing split timing & progress        #
 #       fix replay messing up reference files                         #
@@ -42,7 +44,7 @@ from libs.sim_info import info
 config = configparser.ConfigParser(inline_comment_prefixes=';')
 config.read("apps/python/RallyTiming/config/config.ini")
 
-###### App settings
+###### App settings from config file
 StartSpeedLimit = config.getint("STARTVERIFICATION", "startspeedlimit")
 MaxStartLineDistance = config.getfloat("STARTVERIFICATION", "maxstartlinedistance")
 ShowStartSpeed = config.getboolean("STARTVERIFICATION", "showstartspeed")
@@ -78,6 +80,7 @@ SpeedTrapValue = 0
 StartChecked = False
 reference_stage_time_int = 0
 CheckFastestTime = False
+
 
 ###### Determine track name & layout
 if ac.getTrackConfiguration(0) != "":
@@ -145,7 +148,7 @@ ac.console(AppName + ": Track Name: " + TrackName)
 def acMain(ac_version):
     global line1, line2, line3, line4, line5, line6, appWindow, appWindowSize
     global window_timing, window_progress_bar, window_split_notification, window_choose_reference
-    global button_open_timing, button_open_map, button_open_reference, button_open_notifications, button_expand_main
+    global button_open_timing, button_open_map, button_open_reference, button_open_notifications, button_expand_main, button_delete_reffiles, button_reset_start_stop
 
     appWindow = ac.newApp(AppName + " - Main")
 
@@ -188,13 +191,25 @@ def acMain(ac_version):
     ac.setVisible(button_open_notifications, 0)
     ac.addOnClickedListener(button_open_notifications, toggle_notifications)
 
+    button_delete_reffiles = ac.addButton(appWindow, lang["button.deletereffiles"])
+    ac.setPosition(button_delete_reffiles, 10, appWindowSize[1] + 102)
+    ac.setSize(button_delete_reffiles, 310, 25)
+    ac.setVisible(button_delete_reffiles, 0)
+    ac.addOnClickedListener(button_delete_reffiles, delete_reffiles)
+    
+    button_reset_start_stop = ac.addButton(appWindow, lang["button.resetstartstop"])
+    ac.setPosition(button_reset_start_stop, 10, appWindowSize[1] + 136)
+    ac.setSize(button_reset_start_stop, 310, 25)
+    ac.setVisible(button_reset_start_stop, 0)
+    ac.addOnClickedListener(button_reset_start_stop, reset_start_stop)
+
     button_expand_main = ac.addButton(appWindow, "")
     ac.setPosition(button_expand_main, 0, 0)
     ac.drawBorder(button_expand_main, 0)
     ac.setBackgroundOpacity(button_expand_main, 0)
     ac.setSize(button_expand_main, 30, 30)
     ac.addOnClickedListener(button_expand_main, toggle_button_display)
-
+    
     window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
     window_split_notification = SplitNotificationWindow()
     window_timing = TimingWindow()
@@ -588,7 +603,6 @@ class ProgressBarWindow:
         ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, 20, self.barWidth, self.barHeight)  # X, Y, width, height
 
         splinePos = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
-
         last_delta = 0
         split_delta_values = []
 
@@ -632,10 +646,10 @@ class ProgressBarWindow:
         MapPosition = self.padding_top + self.barHeight - (self.barHeight * ((splinePos - StartSpline) / (FinishSpline - StartSpline)))
         ac.glColor4f(*(red[:3] + (min(self.transparency + 0.2, 1),)))
         ac.glBegin(3)
-        ac.glVertex2f(self.windowWidth / 2, MapPosition + self.barWidth)
-        ac.glVertex2f(self.windowWidth / 2 - self.barWidth, MapPosition)
-        ac.glVertex2f(self.windowWidth / 2, MapPosition - self.barWidth)
-        ac.glVertex2f(self.windowWidth / 2 + self.barWidth, MapPosition)
+        ac.glVertex2f(int(self.windowWidth / 2), int(MapPosition + self.barWidth))
+        ac.glVertex2f(int(self.windowWidth / 2 - self.barWidth), int(MapPosition))
+        ac.glVertex2f(int(self.windowWidth / 2), int(MapPosition - self.barWidth))
+        ac.glVertex2f(int(self.windowWidth / 2 + self.barWidth), int(MapPosition))
         ac.glEnd()
 
     def on_activate(self, *args):
@@ -1005,10 +1019,11 @@ def write_reference_file(origin_data, path, time):
         int(time % 1000)).zfill(3) + "_" + ac.getDriverName(0) + "_" + ac.getCarName(0).replace("_", "-") + ".refl"
     weather = get_weather()
     write = ["#Car: " + ac.getCarName(0),
+             "\n#Track: " + TrackName,
+             "\n#Driver: " + ac.getDriverName(0),
              "\n#Local date & time: " + datetime.now().strftime("%d-%m-%Y, %H:%M"),
              "\n#In-game time: " + weather["GAMETIME"]["HOUR"],
-             "\n#Driver: " + ac.getDriverName(0),
-             "\n#Stage time: " + str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(
+             "\n#Stage time: " + str(int(time // 60000)).zfill(2) + ":" + str(time // 1000 % 60).zfill(2) + "." + str(
                  int(time % 1000)).zfill(3),
              "\n#Speed on startline: {:.2f}".format(StartSpeed) + " km/h",
              "\n#Comments: ",
@@ -1097,7 +1112,6 @@ def get_weather():
                     data[key][sub_key] = "unknown"
                 elif not data[key][sub_key]:
                     data[key][sub_key] = "unknown"
-
     return data
 
 
@@ -1156,20 +1170,28 @@ def toggle_notifications(*args):
 
 def toggle_button_display(*args):
     global main_expanded
-    if main_expanded:
-        ac.setVisible(button_open_map, 0)
-        ac.setVisible(button_open_timing, 0)
-        ac.setVisible(button_open_reference, 0)
-        ac.setVisible(button_open_notifications, 0)
-        ac.setSize(appWindow, *appWindowSize)
-        main_expanded = False
-    else:
-        ac.setVisible(button_open_map, 1)
-        ac.setVisible(button_open_timing, 1)
-        ac.setVisible(button_open_reference, 1)
-        ac.setVisible(button_open_notifications, 1)
-        ac.setSize(appWindow, appWindowSize[0], appWindowSize[1] + 100)
-        main_expanded = True
+    main_buttons = [button_open_map, button_open_timing, button_open_reference, button_open_notifications, button_delete_reffiles, button_reset_start_stop]
+    for button in main_buttons:
+        ac.setVisible(button, int(not main_expanded)) 		# int() converts True to 1 and False to 0
+                                                            # Use a ternary operator to set the app window size based on the main_expanded flag
+    ac.setSize(appWindow, appWindowSize[0], appWindowSize[1] + 170 if not main_expanded else appWindowSize[1])
+    main_expanded = not main_expanded                       # Flip the main_expanded flag at the end
+
+
+def delete_reffiles(*args):
+    for file in os.listdir(ReferenceFolder):
+        if file.endswith(".refl"):
+            os.remove(ReferenceFolder + "/" + file)
+
+
+def reset_start_stop(*args):
+    global Status
+    Status = 0
+    StartFinishSplines[TrackName]["StartSpline"] = 0
+    StartFinishSplines[TrackName]["FinishSpline"] = 1.0001
+    StartFinishSplines[TrackName]["TrueLength"] = 0
+    with open(StartFinishJson, "w") as file:
+        json.dump(StartFinishSplines, file, indent=4)
 
 
 def reset_variables():

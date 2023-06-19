@@ -1,6 +1,6 @@
 {
 	"English": {
-		"phase.detect": "DETECTING START LINE",
+		"phase.detect": "DETECTING START LINE (CROSS SLOWLY!)",
 		"phase.linefound": "START LINE FOUND! RESTART SESSION",
 		"phase.gotostart": "DRIVE TO START",
 		"phase.instage": "IN STAGE",
@@ -21,10 +21,12 @@
 		"button.opentiming": "Show delta timing",
 		"button.openreference": "Choose reference lap",
 		"button.openmap": "Show progress bar",
-		"button.opennotifications": "Show notifications on splits"
+		"button.opennotifications": "Show notifications on splits",
+		"button.deletereffiles": "Delete ref. files for current track",
+		"button.resetstartstop": "Reset start/finish data for current track"
 	},
 	"Spanish": {
-		"phase.detect": "DETECTANDO LÍNEA DE SALIDA",
+		"phase.detect": "DETECTANDO LÍNEA DE SALIDA (DESPACIO!)",
 		"phase.linefound": "¡LÍNEA DE SALIDA ENCONTRADA! REINICIAR SESIÓN",
 		"phase.gotostart": "CONDUCIR HASTA LA SALIDA",
 		"phase.instage": "EN ETAPA",
@@ -45,10 +47,12 @@
 		"button.opentiming": "Tiempos delta",
 		"button.openreference": "Elegir tiempo de referencia",
 		"button.openmap": "Barra de progreso",
-		"button.opennotifications": "Mostrar notificaciones parciales"
+		"button.opennotifications": "Mostrar notificaciones parciales",
+		"button.deletereffiles": "Borrar archivos de referencia pista actual",
+		"button.resetstartstop": "Restablecer salida/llegada pista actual"
 	},
 	"French": {
-		"phase.detect": "DÉTECTION LIGNE DE DÉPART",
+		"phase.detect": "DÉTECTION LIGNE DE DÉPART (LENTEMENT!)",
 		"phase.linefound": "LIGNE DE DÉPART TROUVÉE ! REDÉMARREZ LA SESSION",
 		"phase.gotostart": "AVANCEZ JUSQU'AU DÉPART",
 		"phase.instage": "DANS L'ÉTAPE",
@@ -69,10 +73,12 @@
 		"button.opentiming": "Afficher temps delta",
 		"button.openreference": "Choix chrono de référence",
 		"button.openmap": "Barre de progression",
-		"button.opennotifications": "Notifications sur les écarts"
+		"button.opennotifications": "Notifications sur les écarts",
+		"button.deletereffiles": "Effacer fichiers référence piste actuelle",
+		"button.resetstartstop": "Initialiser départ/arrivée piste actuelle"
 	},
 	"German": {
-		"phase.detect": "START WIRD GESUCHT",
+		"phase.detect": "START WIRD GESUCHT (LANGSAM KREUZEN!)",
 		"phase.linefound": "START GEFUNDEN! STARTE DIE SESSION NEU",
 		"phase.gotostart": "FAHRE ZUM START",
 		"phase.instage": "IN DER STAGE",
@@ -93,6 +99,8 @@
 		"button.opentiming": "Öffne Zeitnahme",
 		"button.openreference": "Wähle Referenzzeit",
 		"button.openmap": "Öffne Kartenansicht",
-		"button.opennotifications": "Benachrichtigungen Splits anzeigen"
+		"button.opennotifications": "Benachrichtigungen Splits anzeigen",
+		"button.deletereffiles": "Referenzdateien aktuelle Strecke löschen",
+		"button.resetstartstop": "Init. der Start-/Zieldaten aktuelle Strecke"
 	}
 }
