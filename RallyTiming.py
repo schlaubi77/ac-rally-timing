@@ -10,6 +10,7 @@
 # changelog:                                                          #
 # v1.52 correct 'show splits' in config file, some metadat in .refl   #
 #       add buttons to reset start/finish data & delete .refl files   #
+#       fix for FinisSline = 0 resulting in car position not shown    #
 # v1.51 add another window, containing section delta pop-ups          #
 # v1.50 add linear map display showing split timing & progress        #
 #       fix replay messing up reference files                         #
@@ -127,7 +128,7 @@ with open(StartFinishJson, "r") as file:
         Status = 0
         StartSpline = 0
         FinishSpline = 1.0001  # fallback value but offseted, so it is marked that fallback
-        StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 0, "TrueLength": 0}
+        StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 1.0001, "TrueLength": 0}
 
 white = (1, 1, 1, 1)
 gray = (0.75, 0.75, 0.75, 1)
@@ -1186,12 +1187,13 @@ def delete_reffiles(*args):
 
 def reset_start_stop(*args):
     global Status
-    Status = 0
-    StartFinishSplines[TrackName]["StartSpline"] = 0
-    StartFinishSplines[TrackName]["FinishSpline"] = 1.0001
-    StartFinishSplines[TrackName]["TrueLength"] = 0
-    with open(StartFinishJson, "w") as file:
-        json.dump(StartFinishSplines, file, indent=4)
+    if ac.getCarState(0, acsys.CS.LapTime) == 0:
+        Status = 0
+        StartFinishSplines[TrackName]["StartSpline"] = 0
+        StartFinishSplines[TrackName]["FinishSpline"] = 1.0001
+        StartFinishSplines[TrackName]["TrueLength"] = 0
+        with open(StartFinishJson, "w") as file:
+            json.dump(StartFinishSplines, file, indent=4)
 
 
 def reset_variables():
