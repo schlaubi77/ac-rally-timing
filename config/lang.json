@@ -22,7 +22,7 @@
 		"button.openreference": "Choose reference lap",
 		"button.openmap": "Show progress bar",
 		"button.opennotifications": "Show notifications on splits",
-		"button.deletereffiles": "Delete ref. files for current track",
+		"button.deletereffiles": "Delete reference files for current track",
 		"button.resetstartstop": "Reset start/finish data for current track"
 	},
 	"Spanish": {

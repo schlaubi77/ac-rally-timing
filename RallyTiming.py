@@ -126,8 +126,7 @@ with open(StartFinishJson, "r") as file:
     except KeyError:
         ac.console(AppName + ": No complete track info found in json")
         Status = 0
-        StartSpline = 0
-        FinishSpline = 1.0001  # fallback value but offseted, so it is marked that fallback
+#       FinishSpline = 1.0001  -> fallback value but offseted, so it is marked that fallback
         StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 1.0001, "TrueLength": 0}
 
 white = (1, 1, 1, 1)
@@ -150,14 +149,15 @@ def acMain(ac_version):
     global line1, line2, line3, line4, line5, line6, appWindow, appWindowSize
     global window_timing, window_progress_bar, window_split_notification, window_choose_reference
     global button_open_timing, button_open_map, button_open_reference, button_open_notifications, button_expand_main, button_delete_reffiles, button_reset_start_stop
+    global button_delete_reffiles_y, button_delete_reffiles_n, button_reset_start_stop_y,  button_reset_start_stop_n
 
     appWindow = ac.newApp(AppName + " - Main")
 
     if not DebugMode:
         if not ShowFuel:
-            appWindowSize = (373, 100)
+            appWindowSize = (378, 100)
         else:
-            appWindowSize = (373, 120)
+            appWindowSize = (378, 120)
     else:
         appWindowSize = (580, 180)
 
@@ -168,49 +168,23 @@ def acMain(ac_version):
     ac.setIconPosition(appWindow, 0, -10000)
     ac.setBackgroundOpacity(appWindow, 0.1)
 
-    button_open_timing = ac.addButton(appWindow, lang["button.opentiming"])
-    ac.setPosition(button_open_timing, 10, appWindowSize[1])
-    ac.setSize(button_open_timing, 150, 25)
-    ac.setVisible(button_open_timing, 0)
-    ac.addOnClickedListener(button_open_timing, toggle_timing_window)
+    button_open_timing = create_button(lang["button.opentiming"], 10, appWindowSize[1], 150, 25, listener=toggle_timing_window)
+    button_open_map    = create_button(lang["button.openmap"],   170, appWindowSize[1], 150, 25, listener=toggle_map)
+    button_open_reference =     create_button(lang["button.openreference"],     10, appWindowSize[1] + 34, 310, 25, listener=toggle_reference)
+    button_open_notifications = create_button(lang["button.opennotifications"], 10, appWindowSize[1] + 68, 310, 25, listener=toggle_notifications)
 
-    button_open_map = ac.addButton(appWindow, lang["button.openmap"])
-    ac.setPosition(button_open_map, 170, appWindowSize[1])
-    ac.setSize(button_open_map, 150, 25)
-    ac.setVisible(button_open_map, 0)
-    ac.addOnClickedListener(button_open_map, toggle_map)
+    button_delete_reffiles =  create_button(lang["button.deletereffiles"], 10, appWindowSize[1] + 102, 310, 25, color=(0.8,0,0), listener=show_delete_yn)
+    button_delete_reffiles_y = create_button("Y", 320, appWindowSize[1] + 102, 25, 25, listener=delete_reffiles)
+    button_delete_reffiles_n = create_button("N", 345, appWindowSize[1] + 102, 25, 25, listener=hide_delete_yn)
 
-    button_open_reference = ac.addButton(appWindow, lang["button.openreference"])
-    ac.setPosition(button_open_reference, 10, appWindowSize[1] + 34)
-    ac.setSize(button_open_reference, 310, 25)
-    ac.setVisible(button_open_reference, 0)
-    ac.addOnClickedListener(button_open_reference, toggle_reference)
-    
-    button_open_notifications = ac.addButton(appWindow, lang["button.opennotifications"])
-    ac.setPosition(button_open_notifications, 10, appWindowSize[1] + 68)
-    ac.setSize(button_open_notifications, 310, 25)
-    ac.setVisible(button_open_notifications, 0)
-    ac.addOnClickedListener(button_open_notifications, toggle_notifications)
+    button_reset_start_stop = create_button(lang["button.resetstartstop"], 10, appWindowSize[1] + 136, 310, 25, color=(0.8,0,0), listener=show_reset_yn)
+    button_reset_start_stop_y = create_button("Y", 320, appWindowSize[1] + 136, 25, 25, listener=reset_start_stop)
+    button_reset_start_stop_n = create_button("N", 345, appWindowSize[1] + 136, 25, 25, listener=hide_reset_yn)
 
-    button_delete_reffiles = ac.addButton(appWindow, lang["button.deletereffiles"])
-    ac.setPosition(button_delete_reffiles, 10, appWindowSize[1] + 102)
-    ac.setSize(button_delete_reffiles, 310, 25)
-    ac.setVisible(button_delete_reffiles, 0)
-    ac.addOnClickedListener(button_delete_reffiles, delete_reffiles)
-    
-    button_reset_start_stop = ac.addButton(appWindow, lang["button.resetstartstop"])
-    ac.setPosition(button_reset_start_stop, 10, appWindowSize[1] + 136)
-    ac.setSize(button_reset_start_stop, 310, 25)
-    ac.setVisible(button_reset_start_stop, 0)
-    ac.addOnClickedListener(button_reset_start_stop, reset_start_stop)
+    button_expand_main = create_button("", 0 ,0 ,30 ,30 , visible=1, listener=toggle_button_display)
+    ac.drawBorder(button_expand_main ,0)
+    ac.setBackgroundOpacity(button_expand_main ,0)
 
-    button_expand_main = ac.addButton(appWindow, "")
-    ac.setPosition(button_expand_main, 0, 0)
-    ac.drawBorder(button_expand_main, 0)
-    ac.setBackgroundOpacity(button_expand_main, 0)
-    ac.setSize(button_expand_main, 30, 30)
-    ac.addOnClickedListener(button_expand_main, toggle_button_display)
-    
     window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
     window_split_notification = SplitNotificationWindow()
     window_timing = TimingWindow()
@@ -1169,6 +1143,18 @@ def toggle_notifications(*args):
     window_split_notification.toggleVisibility()
 
 
+def create_button(text, x, y, width, height, visible=0, color=None, listener=None):
+    button = ac.addButton(appWindow, text)
+    ac.setPosition(button, x, y)
+    ac.setSize(button, width, height)
+    ac.setVisible(button, visible)
+    if color:
+        ac.setBackgroundColor(button, *color)
+    if listener:
+        ac.addOnClickedListener(button, listener)
+    return button
+
+
 def toggle_button_display(*args):
     global main_expanded
     main_buttons = [button_open_map, button_open_timing, button_open_reference, button_open_notifications, button_delete_reffiles, button_reset_start_stop]
@@ -1179,19 +1165,41 @@ def toggle_button_display(*args):
     main_expanded = not main_expanded                       # Flip the main_expanded flag at the end
 
 
+def show_delete_yn(*args):
+    ac.setVisible(button_delete_reffiles_y, 1)
+    ac.setVisible(button_delete_reffiles_n, 1)
+
+
+def hide_delete_yn(*args):
+    ac.setVisible(button_delete_reffiles_y, 0)
+    ac.setVisible(button_delete_reffiles_n, 0)
+
+
 def delete_reffiles(*args):
     for file in os.listdir(ReferenceFolder):
         if file.endswith(".refl"):
             os.remove(ReferenceFolder + "/" + file)
+    ac.setBackgroundColor(button_delete_reffiles, 0,0,0)
+    hide_delete_yn()
+
+
+def show_reset_yn(*args):
+    ac.setVisible(button_reset_start_stop_y, 1)
+    ac.setVisible(button_reset_start_stop_n, 1)
+
+
+def hide_reset_yn(*args):
+    ac.setVisible(button_reset_start_stop_y, 0)
+    ac.setVisible(button_reset_start_stop_n, 0)
 
 
 def reset_start_stop(*args):
     global Status
     if ac.getCarState(0, acsys.CS.LapTime) == 0:
         Status = 0
-        StartFinishSplines[TrackName]["StartSpline"] = 0
-        StartFinishSplines[TrackName]["FinishSpline"] = 1.0001
-        StartFinishSplines[TrackName]["TrueLength"] = 0
+        ac.setBackgroundColor(button_reset_start_stop, 0,0,0)
+        hide_reset_yn()
+        StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 1.0001, "TrueLength": 0}
         with open(StartFinishJson, "w") as file:
             json.dump(StartFinishSplines, file, indent=4)
 
