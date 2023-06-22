@@ -1,16 +1,18 @@
 #######################################################################
-# Rally Timing v1.51                                                  #
+# Rally Timing v1.52                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 17/06/2023                            #
+# Copyright wimdes & schlaubi77 22/06/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, GPT-4          #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
-# v1.52 correct 'show splits' in config file, some metadat in .refl   #
+# v1.52 correct 'show splits' in config file, some metadata in .refl  #
 #       add buttons to reset start/finish data & delete .refl files   #
-#       fix for FinisSline = 0 resulting in car position not shown    #
+#       fix for FinishSpline = 0 resulting in car position not shown  #
+#       include ctypes, write startposition accuracy in logs          #
+#       use triangles instead of quad for car position                #
 # v1.51 add another window, containing section delta pop-ups          #
 # v1.50 add linear map display showing split timing & progress        #
 #       fix replay messing up reference files                         #
@@ -33,13 +35,15 @@
 #######################################################################
 # TODO:                                                               #
 # cleanup code                                                        #
-# reset track data button                                             #
 #                                                                     #
 # interval for ref file creation                                      #
 #######################################################################
 
 from datetime import datetime
 import sys, ac, acsys, os, json, math, configparser
+sysdir='apps/python/RallyTiming/libs'
+sys.path.insert(0, sysdir)
+os.environ['PATH'] = os.environ['PATH'] + ";."
 from libs.sim_info import info
 
 config = configparser.ConfigParser(inline_comment_prefixes=';')
@@ -125,9 +129,13 @@ with open(StartFinishJson, "r") as file:
         Status = 1
     except KeyError:
         ac.console(AppName + ": No complete track info found in json")
-        Status = 0
-#       FinishSpline = 1.0001  -> fallback value but offseted, so it is marked that fallback
+        Status = 0      #      FinishSpline  1.0001 = fallback value but offsetted so it can be recognized
         StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 1.0001, "TrueLength": 0}
+    if FinishSpline == 0:    # fix for bad finishspline data in old files
+        FinishSpline = 1.0001
+
+# ac.console(str(StartSpline))
+# ac.console(str(FinishSpline))
 
 white = (1, 1, 1, 1)
 gray = (0.75, 0.75, 0.75, 1)
@@ -181,7 +189,7 @@ def acMain(ac_version):
     button_reset_start_stop_y = create_button("Y", 320, appWindowSize[1] + 136, 25, 25, listener=reset_start_stop)
     button_reset_start_stop_n = create_button("N", 345, appWindowSize[1] + 136, 25, 25, listener=hide_reset_yn)
 
-    button_expand_main = create_button("", 0 ,0 ,30 ,30 , visible=1, listener=toggle_button_display)
+    button_expand_main = create_button("", 0 ,0 ,40 ,100 , visible=1, listener=toggle_button_display)
     ac.drawBorder(button_expand_main ,0)
     ac.setBackgroundOpacity(button_expand_main ,0)
 
@@ -249,6 +257,8 @@ def acUpdate(deltaT):
     if Status in (2, 6) and ActualSpline > StartSpline:
         StartSpeed = ActualSpeed
         StartPositionAccuracy = abs((StartSpline - ActualSpline) * SplineLength)
+        ac.console(AppName + ": StartPositionAccuracy: " + str(round(StartPositionAccuracy * 100)) + "cm - Startspeed: " + "{:.2f}".format(StartSpeed) + "km/h")
+        ac.log(AppName + ": StartPositionAccuracy: " + str(round(StartPositionAccuracy * 100)) + "cm - Startspeed: " + "{:.2f}".format(StartSpeed) + "km/h")
         ac.setFontColor(line1, *white)
         Status = 3  # In stage
 
@@ -619,12 +629,18 @@ class ProgressBarWindow:
 
         # draw car position
         MapPosition = self.padding_top + self.barHeight - (self.barHeight * ((splinePos - StartSpline) / (FinishSpline - StartSpline)))
+        left = [self.windowWidth/2 - self.barWidth, MapPosition]
+        bottom = [self.windowWidth/2, MapPosition + self.barWidth]
+        right = [self.windowWidth/2 + self.barWidth, MapPosition]
+        top = [self.windowWidth/2, MapPosition - self.barWidth]
         ac.glColor4f(*(red[:3] + (min(self.transparency + 0.2, 1),)))
-        ac.glBegin(3)
-        ac.glVertex2f(int(self.windowWidth / 2), int(MapPosition + self.barWidth))
-        ac.glVertex2f(int(self.windowWidth / 2 - self.barWidth), int(MapPosition))
-        ac.glVertex2f(int(self.windowWidth / 2), int(MapPosition - self.barWidth))
-        ac.glVertex2f(int(self.windowWidth / 2 + self.barWidth), int(MapPosition))
+        ac.glBegin(2)   # use 2 triangles instead of 1 quad
+        ac.glVertex2f(*left)
+        ac.glVertex2f(*bottom)
+        ac.glVertex2f(*right)
+        ac.glVertex2f(*right)
+        ac.glVertex2f(*top)
+        ac.glVertex2f(*left)
         ac.glEnd()
 
     def on_activate(self, *args):
