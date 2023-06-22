@@ -11,6 +11,7 @@
 # v1.52 correct 'show splits' in config file, some metadata in .refl  #
 #       add buttons to reset start/finish data & delete .refl files   #
 #       fix for FinishSpline = 0 resulting in car position not shown  #
+#       create new StartFinishSplines.json if none                    #
 #       include ctypes, write startposition accuracy in logs          #
 #       use triangles instead of quad for car position                #
 # v1.51 add another window, containing section delta pop-ups          #
@@ -35,7 +36,7 @@
 #######################################################################
 # TODO:                                                               #
 # cleanup code                                                        #
-#                                                                     #
+# add icons, add invalidate option (wheels off track)                 #
 # interval for ref file creation                                      #
 #######################################################################
 
@@ -121,21 +122,24 @@ else:
     StatusList[5] = lang["phase.invalidatedserver"]
 
 ###### Load start and finish positions from json file
-with open(StartFinishJson, "r") as file:
-    StartFinishSplines = json.load(file)
-    try:
-        StartSpline = (StartFinishSplines[TrackName]["StartSpline"])
-        FinishSpline = (StartFinishSplines[TrackName]["FinishSpline"])
-        Status = 1
-    except KeyError:
-        ac.console(AppName + ": No complete track info found in json")
-        Status = 0      #      FinishSpline  1.0001 = fallback value but offsetted so it can be recognized
-        StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 1.0001, "TrueLength": 0}
+try:
+    with open(StartFinishJson, "r") as file:
+        StartFinishSplines = json.load(file)
+except FileNotFoundError:
+    StartFinishSplines = {}
+    StartSpline = 0
+    FinishSpline = 1.0001   # add slight offset that can be detected
+    Status = 0
+    StartFinishSplines[TrackName] = {"StartSpline": StartSpline, "FinishSpline": FinishSpline, "TrueLength": 0}
+else:
+    StartSpline = StartFinishSplines.get(TrackName, {}).get("StartSpline", 0)
+    FinishSpline = StartFinishSplines.get(TrackName, {}).get("FinishSpline", 1.0001)
+    Status = 1 if StartSpline else 0
     if FinishSpline == 0:    # fix for bad finishspline data in old files
         FinishSpline = 1.0001
-
-# ac.console(str(StartSpline))
-# ac.console(str(FinishSpline))
+    StartFinishSplines[TrackName] = {"StartSpline": StartSpline, "FinishSpline": FinishSpline, "TrueLength": 0}
+with open(StartFinishJson, "w") as file:
+    json.dump(StartFinishSplines, file)
 
 white = (1, 1, 1, 1)
 gray = (0.75, 0.75, 0.75, 1)
