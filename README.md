@@ -1,15 +1,17 @@
 # AC Rally timing app (by schlaubi77 & wimdes)
 
-## Version 1.5.1 (15/06/2023)
+## Version 1.52 (22/06/2023)
 
 ***
 
 The app has 3 main functions:
-- Start Position Verification
-- Delta Timing
-- A car reset key.
+- start position verification
+- delta timing 
+- stage progress bar indicator
+- split timing 
+- car reset key
 
-There's 3 windows/sub-apps: Main, Delta Timing, Reference File selector (opened separately in app menu bar)
+There's 5 windows/sub-apps: Main, Delta timing, Progress Bar, Split Notifications Reference file selector (opened separately by extending main window, or in app menu bar)
 
 **Start position:** The app wil help in finding proper starting position, and alert if a lap will be invalidated by AC Server Manager when a speed trap is set on the startline. Speed traps were introduced in ACSM version v2.3.4.
 
@@ -41,7 +43,7 @@ Speed Traps - Send Chat Messages must be "On" in the server, otherwise there wil
 - Show the speed on the startline when offline, speed trap value as reported by the server when online (this can deviate 1-2 km/h)
 - Alert when startline speed is above set threshold - changing this value in the app does not influence the value on the server!
   The speed threshold on the server is set in the results.lua file (in m/s)
-- Most settings can be configuerd in Python app settings in Content manager
+- Most settings can be configured in Python app settings in Content manager
   * Optionally show remaining fuel level
   * Interface language can be set to English, Spanish, French or German
 - Reset car to track button - configurable in CM app settings (keyboard or wheel)
