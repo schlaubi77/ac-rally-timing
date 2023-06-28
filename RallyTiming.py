@@ -1,13 +1,16 @@
 #######################################################################
-# Rally Timing v1.52                                                  #
+# Rally Timing v1.53                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 22/06/2023                            #
+# Copyright wimdes & schlaubi77 28/06/2023                            #
 # Released under the terms of GPLv3                                   #
-# thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, GPT-4          #
+# thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.53 several fixes and improvements for timings with replays       #
+#       close reference chooser when collapsing main window           #
+#       don't try showing delta & splits without target time          #
 # v1.52 correct 'show splits' in config file, some metadata in .refl  #
 #       add buttons to reset start/finish data & delete .refl files   #
 #       fix for FinishSpline = 0 resulting in car position not shown  #
@@ -86,7 +89,8 @@ SpeedTrapValue = 0
 StartChecked = False
 reference_stage_time_int = 0
 CheckFastestTime = False
-
+SavedReplayMode = False
+LastGraphicsStatus = 0
 
 ###### Determine track name & layout
 if ac.getTrackConfiguration(0) != "":
@@ -150,8 +154,6 @@ line1, line2, line3, line4, line5, line6 = [0 for i in range(6)]
 
 ###### write some stuff into log and console
 ac.console(AppName + ": Track Name: " + TrackName)
-# ac.console (AppName + ": Start Spline: {:.10f}".format(StartSpline))
-# ac.console (AppName + ": Finish Spline: {:.10f}".format(FinishSpline))
 # ac.console (AppName + ": Meter: {:.10f}".format(Meter))
 # ac.console (AppName + ": Centimeter: {:.10f}".format(Meter / 100))
 # ac.log(AppName + " test entry")
@@ -218,7 +220,7 @@ def acMain(ac_version):
 def acUpdate(deltaT):
     global line1, line2, line3, line4, line5, line6
     global Status, ActualSpline, ActualSpeed, StartSpline, FinishSpline, StartSpeed, StartDistance, LastSessionTime, StartPositionAccuracy, LapCountTracker
-    global SpeedTrapValue, StartChecked, data_collected, CheckFastestTime
+    global SpeedTrapValue, StartChecked, data_collected, CheckFastestTime, SavedReplayMode, LastGraphicsStatus
 
     ActualSpline = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
     ActualSpeed = ac.getCarState(0, acsys.CS.SpeedKMH)
@@ -227,6 +229,16 @@ def acUpdate(deltaT):
     LapTime = ac.getCarState(0, acsys.CS.LapTime)
     LapCount = ac.getCarState(0, acsys.CS.LapCount)
     ac.addOnChatMessageListener(appWindow, chat_message_listener)
+
+    # detect when a replay from disk is playing (game starting straight into replay mode)
+    if LastGraphicsStatus == 0:
+        if info.graphics.status == 1:
+            SavedReplayMode = True
+            LastGraphicsStatus = 1
+            ac.log(AppName + ": Saved replay mode detected")
+            ac.console(AppName + ": Saved replay mode detected")
+        if info.graphics.status == 2:
+            LastGraphicsStatus = 2
 
     # reset key or button pressed
     if ac.ext_isButtonPressed(ResetKey):
@@ -258,7 +270,7 @@ def acUpdate(deltaT):
         Status = 2  # Drive back to start
 
     # in front of start, but now crossed startline => into stage
-    if Status in (2, 6) and ActualSpline > StartSpline:
+    if Status in (2, 6) and ActualSpline > StartSpline and info.graphics.status == 2:
         StartSpeed = ActualSpeed
         StartPositionAccuracy = abs((StartSpline - ActualSpline) * SplineLength)
         ac.console(AppName + ": StartPositionAccuracy: " + str(round(StartPositionAccuracy * 100)) + "cm - Startspeed: " + "{:.2f}".format(StartSpeed) + "km/h")
@@ -267,24 +279,28 @@ def acUpdate(deltaT):
         Status = 3  # In stage
 
     # in stage, but lap done => finished
-    if Status in (3, 5) and LapCount > LapCountTracker and info.graphics.status != 1:  # 1 is replay, 2 is menu
-        write_reference_file(data_collected, ReferenceFolder,
-                             info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
+    if Status in (3, 5) and LapCount > LapCountTracker and info.graphics.status == 2:  # 0=off, 1=replay, 2=driving, 3=pause
+        write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
         CheckFastestTime = True
         Status = 4  # Over finish
         if FinishSpline == 1.0001:
             FinishSpline = ActualSpline
             TrueLength = (FinishSpline - StartSpline) * SplineLength
             StartFinishSplines[TrackName]["FinishSpline"] = ActualSpline
-            StartFinishSplines[TrackName]["TrueLength"] = TrueLength
+            StartFinishSplines[TrackName]["TrueLength"] = round(TrueLength)
             with open(StartFinishJson, "w") as file:
                 json.dump(StartFinishSplines, file, indent=4)
 
-    # fix for status during replays
-    if Status in (3, 5) and info.graphics.status == 1 and ActualSpline > FinishSpline:
-        Status = 4  # Over finish
+    # fixes for status during replays
+    if info.graphics.status == 1:
+        if StartSpline < ActualSpline < FinishSpline:
+            Status = 3  # in stage
+        if Status in (3, 5) and ActualSpline > FinishSpline:
+            Status = 4  # over finish
+        if Status in (3, 4, 5) and ActualSpline < StartSpline:
+            Status = 2  # drive to start
 
-    if OnServer:
+    if OnServer and info.graphics.status == 2:
         if Status == 3 and SpeedTrapValue > StartSpeedLimit:
             Status = 5  # START FAIL - ONLINE LAP WILL BE INVALIDATED
             StatusList[4] = lang["phase.invalidatedserver"]
@@ -301,7 +317,7 @@ def acUpdate(deltaT):
             ac.setFontColor(line1, *red)
 
     # reset to before start line => reset
-    if Status in (3, 4, 5) and ActualSpline < StartSpline:
+    if Status in (3, 4, 5) and ActualSpline < StartSpline and info.graphics.status == 2:
         LapCountTracker = ac.getCarState(0, acsys.CS.LapCount)
         Status = 2  # Drive to start
         StatusList[4] = lang["phase.finished"]
@@ -348,14 +364,16 @@ def acUpdate(deltaT):
         else:
             ac.setText(line3, "")
 
-        data_collected.append((ActualSpline, time))
+#        ac.log("status: " + str(info.graphics.status))
+#        ac.log("savedreplaymode: " + str(SavedReplayMode))
+        if info.graphics.status == 2 or SavedReplayMode:
+            data_collected.append((ActualSpline, time))
 
     ac.setText(line1, StatusList[Status])
-
     window_timing.update()
+
     if ShowFuel:
         ac.setText(line4, lang["fuel"] + "{:.1f}".format(info.physics.fuel) + " l")
-
     if DebugMode:
         ac.setText(line4, "StartPositionAccuracy: {:.2f}".format(StartPositionAccuracy) + "  Status: {}".format(
             Status) + "  StageTimeRef: {}".format(reference_stage_time_int))
@@ -490,6 +508,9 @@ class TimingWindow:
             decimals = str(round(((abs(delta) % 1000)/1000), 3))[2:].zfill(3)
             seconds = str(int(abs(delta) // 1000))
 
+            if len(reference_data) == 0:
+                return
+
             if delta > 0:
                 separator = '+'
                 ac.setFontColor(self.label_delta, *red)
@@ -505,11 +526,9 @@ class TimingWindow:
             return
         ref_timepoints = searchNearest(reference_data, ac.getCarState(0, acsys.CS.NormalizedSplinePosition), 0, len(reference_data) - 1)
 
-        # interpolate between the two known timepoints
-        try:
+        try:                                    # interpolate between the two known timepoints
             ref_time = ((ac.getCarState(0, acsys.CS.NormalizedSplinePosition) - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1]
-        except ZeroDivisionError:
-            # fallback when only one point is found
+        except ZeroDivisionError:               # fallback when only one point is found
             ref_time = ref_timepoints[0][1]
 
         delta = int(time - ref_time)
@@ -597,30 +616,26 @@ class ProgressBarWindow:
 
         if self.show_splits:
             current_sector = int((splinePos - StartSpline) / (FinishSpline - StartSpline) * (self.splits + 1)) + 1
-            # color splits
-            for i in range(1, current_sector):
-                # find if split was faster or slower
-                searchPos = (FinishSpline - StartSpline) * i / (self.splits + 1) + StartSpline
-                ref_timepoints = searchNearest(data_collected, searchPos, 0, len(data_collected) - 1)
+            if len(reference_data) != 0:
+                for i in range(1, current_sector):
+                    # find if split was faster or slower
+                    searchPos = (FinishSpline - StartSpline) * i / (self.splits + 1) + StartSpline
+                    ref_timepoints = searchNearest(data_collected, searchPos, 0, len(data_collected) - 1)
+                    try:    # interpolate between the two known timepoints
+                        split_i = int(((searchPos - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1])
+                    except ZeroDivisionError:   # fallback when only one point is found
+                        split_i = ref_timepoints[0][1]
 
-                # interpolate between the two known timepoints
-                try:
-                    split_i = int(((searchPos - ref_timepoints[0][0]) / (ref_timepoints[1][0] - ref_timepoints[0][0])) * (ref_timepoints[1][1] - ref_timepoints[0][1]) + ref_timepoints[0][1])
-                except ZeroDivisionError:
-                    # fallback when only one point is found
-                    split_i = ref_timepoints[0][1]
-                ac.glColor4f(*(green[:3] + (self.transparency,)))
-                if split_i - split_times[i - 1] - last_delta > 0:
-                    ac.glColor4f(*(red[:3] + (self.transparency,)))
-
-                last_delta = split_i - split_times[i - 1]
-                
-#                split_delta_values.append("{:.3f}".format(last_delta/1000))
-#                ac.console(str(split_delta_values))
-                
-                ac.glBegin(1)
-                ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth, self.barHeight / (self.splits + 1))
-                ac.glEnd()
+                    ac.glColor4f(*(green[:3] + (self.transparency,)))               # color splits
+                    if split_i - split_times[i - 1] - last_delta > 0:
+                        ac.glColor4f(*(red[:3] + (self.transparency,)))
+                    last_delta = split_i - split_times[i - 1]
+    #                split_delta_values.append("{:.3f}".format(last_delta/1000))
+    #                ac.console(str(split_delta_values))
+                    
+                    ac.glBegin(1)
+                    ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth, self.barHeight / (self.splits + 1))
+                    ac.glEnd()
 
             # draw split positions
             for i in range(1, (self.splits + 1)):
@@ -1036,7 +1051,7 @@ def write_reference_file(origin_data, path, time):
     for data in origin_data:
         write.append(str(data[0]) + ";" + str(data[1]) + "\n")
     with open(path + "/" + filename, "w") as file:
-        ac.log("[" + AppName + "]" + "INFO: Writing to" + file.name)
+        ac.log(AppName + ": Writing to: " + file.name)
         file.writelines(write)
         file.close()
     window_choose_reference.list.addElement(filename.replace(".refl", ""))
@@ -1181,6 +1196,8 @@ def toggle_button_display(*args):
     for button in main_buttons:
         ac.setVisible(button, int(not main_expanded)) 		# int() converts True to 1 and False to 0
                                                             # Use a ternary operator to set the app window size based on the main_expanded flag
+    if main_expanded:
+        ac.setVisible(window_choose_reference.window, 0)
     ac.setSize(appWindow, appWindowSize[0], appWindowSize[1] + 170 if not main_expanded else appWindowSize[1])
     main_expanded = not main_expanded                       # Flip the main_expanded flag at the end
 
