@@ -1,13 +1,16 @@
 #######################################################################
-# Rally Timing v1.53                                                  #
+# Rally Timing v1.54                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 28/06/2023                            #
+# Copyright wimdes & schlaubi77 29/06/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.54 adjustable reference points refresh interval                  #
+#       fix YN buttons not disappearing & truelength registration     #
+#       clear reference data & chooser window after deleting reffiles #
 # v1.53 several fixes and improvements for timings with replays       #
 #       close reference chooser when collapsing main window           #
 #       don't try showing delta & splits without target time          #
@@ -62,6 +65,7 @@ ShowFuel = config.getboolean("GUIOPTIONS", "showfuel")
 Language = config.get("GUIOPTIONS", "language")
 DebugMode = config.getboolean("OTHERSETTINGS", "debugmode")
 MaxRefFiles = config.getint("OTHERSETTINGS", "maximumreffiles")
+RefFileRefreshInterval = round(1000 / config.getint("OTHERSETTINGS", "reffilerefreshrate"))
 DeltaDecimalDigits = config.getint("OTHERSETTINGS", "deltadecimals")
 ResetKey = config.getint("RESETKEY", "resetkey")
 EnableWheelButton = config.getboolean("RESETWHEEL", "enablewheelbutton")
@@ -132,18 +136,20 @@ try:
 except FileNotFoundError:
     StartFinishSplines = {}
     StartSpline = 0
+    TrueLength = 0
     FinishSpline = 1.0001   # add slight offset that can be detected
     Status = 0
-    StartFinishSplines[TrackName] = {"StartSpline": StartSpline, "FinishSpline": FinishSpline, "TrueLength": 0}
+    StartFinishSplines[TrackName] = {"StartSpline": StartSpline, "FinishSpline": FinishSpline, "TrueLength": TrueLength}
 else:
     StartSpline = StartFinishSplines.get(TrackName, {}).get("StartSpline", 0)
     FinishSpline = StartFinishSplines.get(TrackName, {}).get("FinishSpline", 1.0001)
+    TrueLength = StartFinishSplines.get(TrackName, {}).get("TrueLength", 0)
     Status = 1 if StartSpline else 0
     if FinishSpline == 0:    # fix for bad finishspline data in old files
         FinishSpline = 1.0001
-    StartFinishSplines[TrackName] = {"StartSpline": StartSpline, "FinishSpline": FinishSpline, "TrueLength": 0}
+        StartFinishSplines[TrackName] = {"StartSpline": StartSpline, "FinishSpline": FinishSpline, "TrueLength": TrueLength}
 with open(StartFinishJson, "w") as file:
-    json.dump(StartFinishSplines, file)
+    json.dump(StartFinishSplines, file, indent=4)
 
 white = (1, 1, 1, 1)
 gray = (0.75, 0.75, 0.75, 1)
@@ -219,7 +225,7 @@ def acMain(ac_version):
 
 def acUpdate(deltaT):
     global line1, line2, line3, line4, line5, line6
-    global Status, ActualSpline, ActualSpeed, StartSpline, FinishSpline, StartSpeed, StartDistance, LastSessionTime, StartPositionAccuracy, LapCountTracker
+    global Status, ActualSpline, ActualSpeed, StartSpline, FinishSpline, TrueLength, StartSpeed, StartDistance, LastSessionTime, StartPositionAccuracy, LapCountTracker
     global SpeedTrapValue, StartChecked, data_collected, CheckFastestTime, SavedReplayMode, LastGraphicsStatus
 
     ActualSpline = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
@@ -283,7 +289,7 @@ def acUpdate(deltaT):
         write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
         CheckFastestTime = True
         Status = 4  # Over finish
-        if FinishSpline == 1.0001:
+        if FinishSpline == 1.0001 or TrueLength == 0:
             FinishSpline = ActualSpline
             TrueLength = (FinishSpline - StartSpline) * SplineLength
             StartFinishSplines[TrackName]["FinishSpline"] = ActualSpline
@@ -364,10 +370,11 @@ def acUpdate(deltaT):
         else:
             ac.setText(line3, "")
 
-#        ac.log("status: " + str(info.graphics.status))
-#        ac.log("savedreplaymode: " + str(SavedReplayMode))
         if info.graphics.status == 2 or SavedReplayMode:
-            data_collected.append((ActualSpline, time))
+            if len(data_collected) == 0:
+                data_collected.append((ActualSpline, time))
+            if (time - data_collected[-1][-1]) > RefFileRefreshInterval:
+                data_collected.append((ActualSpline, time))
 
     ac.setText(line1, StatusList[Status])
     window_timing.update()
@@ -627,12 +634,14 @@ class ProgressBarWindow:
                         split_i = ref_timepoints[0][1]
 
                     ac.glColor4f(*(green[:3] + (self.transparency,)))               # color splits
+
+#                    ac.console(str(split_i - split_times[i - 1] - last_delta))
                     if split_i - split_times[i - 1] - last_delta > 0:
                         ac.glColor4f(*(red[:3] + (self.transparency,)))
                     last_delta = split_i - split_times[i - 1]
     #                split_delta_values.append("{:.3f}".format(last_delta/1000))
     #                ac.console(str(split_delta_values))
-                    
+
                     ac.glBegin(1)
                     ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth, self.barHeight / (self.splits + 1))
                     ac.glEnd()
@@ -1019,7 +1028,6 @@ def read_reference_file(path):
 
         split_times[i] = split_i
     split_times[num_splits] = reference_stage_time_int
-#    ac.log(str(split_times))
 
     return ret
 
@@ -1198,6 +1206,8 @@ def toggle_button_display(*args):
                                                             # Use a ternary operator to set the app window size based on the main_expanded flag
     if main_expanded:
         ac.setVisible(window_choose_reference.window, 0)
+        hide_reset_yn()
+        hide_delete_yn()
     ac.setSize(appWindow, appWindowSize[0], appWindowSize[1] + 170 if not main_expanded else appWindowSize[1])
     main_expanded = not main_expanded                       # Flip the main_expanded flag at the end
 
@@ -1213,9 +1223,13 @@ def hide_delete_yn(*args):
 
 
 def delete_reffiles(*args):
+    global reference_data
     for file in os.listdir(ReferenceFolder):
         if file.endswith(".refl"):
             os.remove(ReferenceFolder + "/" + file)
+    window_choose_reference.refilterList()
+    reference_data = []
+    ac.setText(window_timing.label_ref, "Target:    (none)")
     ac.setBackgroundColor(button_delete_reffiles, 0,0,0)
     hide_delete_yn()
 
@@ -1231,12 +1245,13 @@ def hide_reset_yn(*args):
 
 
 def reset_start_stop(*args):
-    global Status
+    global Status, FinishSpline
     if ac.getCarState(0, acsys.CS.LapTime) == 0:
         Status = 0
         ac.setBackgroundColor(button_reset_start_stop, 0,0,0)
         hide_reset_yn()
         StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 1.0001, "TrueLength": 0}
+        FinishSpline = 1.0001
         with open(StartFinishJson, "w") as file:
             json.dump(StartFinishSplines, file, indent=4)
 
