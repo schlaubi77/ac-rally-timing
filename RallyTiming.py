@@ -1,14 +1,14 @@
 #######################################################################
 # Rally Timing v1.54                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 29/06/2023                            #
+# Copyright wimdes & schlaubi77 30/06/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
-# v1.54 adjustable reference points refresh interval                  #
+# v1.54 adjustable interval for refl file creation                    #
 #       fix YN buttons not disappearing & truelength registration     #
 #       clear reference data & chooser window after deleting reffiles #
 # v1.53 several fixes and improvements for timings with replays       #
@@ -43,7 +43,6 @@
 # TODO:                                                               #
 # cleanup code                                                        #
 # add icons, add invalidate option (wheels off track)                 #
-# interval for ref file creation                                      #
 #######################################################################
 
 from datetime import datetime
@@ -236,6 +235,7 @@ def acUpdate(deltaT):
     LapCount = ac.getCarState(0, acsys.CS.LapCount)
     ac.addOnChatMessageListener(appWindow, chat_message_listener)
 
+
     # detect when a replay from disk is playing (game starting straight into replay mode)
     if LastGraphicsStatus == 0:
         if info.graphics.status == 1:
@@ -373,8 +373,11 @@ def acUpdate(deltaT):
         if info.graphics.status == 2 or SavedReplayMode:
             if len(data_collected) == 0:
                 data_collected.append((ActualSpline, time))
-            if (time - data_collected[-1][-1]) > RefFileRefreshInterval:
+            nextfiltertime =  data_collected[-1][-1] + RefFileRefreshInterval
+            nextframetime = time + round(deltaT*1000)
+            if nextframetime - nextfiltertime > (round(deltaT*1000))/2:
                 data_collected.append((ActualSpline, time))
+#                ac.log("timepoint: " + str(time))
 
     ac.setText(line1, StatusList[Status])
     window_timing.update()
@@ -639,8 +642,8 @@ class ProgressBarWindow:
                     if split_i - split_times[i - 1] - last_delta > 0:
                         ac.glColor4f(*(red[:3] + (self.transparency,)))
                     last_delta = split_i - split_times[i - 1]
-    #                split_delta_values.append("{:.3f}".format(last_delta/1000))
-    #                ac.console(str(split_delta_values))
+#                    split_delta_values.append("{:.3f}".format(last_delta/1000))
+#                    ac.console(str(split_delta_values))
 
                     ac.glBegin(1)
                     ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth, self.barHeight / (self.splits + 1))
