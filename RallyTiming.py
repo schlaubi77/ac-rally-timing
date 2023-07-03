@@ -44,9 +44,9 @@
 # cleanup code                                                        #
 # add icons, add invalidate option (wheels off track)                 #
 #######################################################################
-
+import time
 from datetime import datetime
-import sys, ac, acsys, os, json, math, configparser
+import sys, ac, acsys, os, json, math, configparser, ctypes
 sysdir='apps/python/RallyTiming/libs'
 sys.path.insert(0, sysdir)
 os.environ['PATH'] = os.environ['PATH'] + ";."
@@ -150,6 +150,24 @@ else:
 with open(StartFinishJson, "w") as file:
     json.dump(StartFinishSplines, file, indent=4)
 
+##### Save replay init
+save_replay = True
+replay_length_ini_path = ""
+try:
+    document_path_buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
+    ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, document_path_buf)
+    assetto_corsa_folder_path = document_path_buf.value + "/Assetto Corsa/"
+    if not os.path.exists(assetto_corsa_folder_path + "cfg/extension/general.ini"):
+        save_replay = False
+        ac.log(AppName + ": " + str(assetto_corsa_folder_path + "cfg/extension/general.ini") + " does not exist. Replays will not be saved automatically")
+    else:
+        ac.log(AppName + ": Replay saving initialised")
+except OSError:
+    save_replay = False
+    ac.log(AppName + ": Windows dlls not found. Replays will not be saved automatically")
+
+replay_worker = 0
+
 white = (1, 1, 1, 1)
 gray = (0.75, 0.75, 0.75, 1)
 green = (0, 1, 0, 1)
@@ -168,7 +186,7 @@ def acMain(ac_version):
     global line1, line2, line3, line4, line5, line6, appWindow, appWindowSize
     global window_timing, window_progress_bar, window_split_notification, window_choose_reference
     global button_open_timing, button_open_map, button_open_reference, button_open_notifications, button_expand_main, button_delete_reffiles, button_reset_start_stop
-    global button_delete_reffiles_y, button_delete_reffiles_n, button_reset_start_stop_y,  button_reset_start_stop_n
+    global button_delete_reffiles_y, button_delete_reffiles_n, button_reset_start_stop_y,  button_reset_start_stop_n, replay_worker
 
     appWindow = ac.newApp(AppName + " - Main")
 
@@ -200,14 +218,16 @@ def acMain(ac_version):
     button_reset_start_stop_y = create_button("Y", 320, appWindowSize[1] + 136, 25, 25, listener=reset_start_stop)
     button_reset_start_stop_n = create_button("N", 345, appWindowSize[1] + 136, 25, 25, listener=hide_reset_yn)
 
-    button_expand_main = create_button("", 0 ,0 ,40 ,100 , visible=1, listener=toggle_button_display)
-    ac.drawBorder(button_expand_main ,0)
-    ac.setBackgroundOpacity(button_expand_main ,0)
+    button_expand_main = create_button("", 0, 0, 40, 100, visible=1, listener=toggle_button_display)
+    ac.drawBorder(button_expand_main, 0)
+    ac.setBackgroundOpacity(button_expand_main, 0)
 
     window_choose_reference = ChooseReferenceWindow("Rally Timing - Reference Laps", "apps/python/RallyTiming/referenceLaps/" + TrackName)
     window_split_notification = SplitNotificationWindow()
     window_timing = TimingWindow()
     window_progress_bar = ProgressBarWindow()
+
+    replay_worker = SaveReplayWorker(assetto_corsa_folder_path, "apps/python/RallyTiming/replays/" + TrackName + "/", save_replay)
 
     lines = []
     for i in range(6):
@@ -225,7 +245,7 @@ def acMain(ac_version):
 def acUpdate(deltaT):
     global line1, line2, line3, line4, line5, line6
     global Status, ActualSpline, ActualSpeed, StartSpline, FinishSpline, TrueLength, StartSpeed, StartDistance, LastSessionTime, StartPositionAccuracy, LapCountTracker
-    global SpeedTrapValue, StartChecked, data_collected, CheckFastestTime, SavedReplayMode, LastGraphicsStatus
+    global SpeedTrapValue, StartChecked, data_collected, CheckFastestTime, SavedReplayMode, LastGraphicsStatus, replay_worker
 
     ActualSpline = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
     ActualSpeed = ac.getCarState(0, acsys.CS.SpeedKMH)
@@ -287,6 +307,7 @@ def acUpdate(deltaT):
     # in stage, but lap done => finished
     if Status in (3, 5) and LapCount > LapCountTracker and info.graphics.status == 2:  # 0=off, 1=replay, 2=driving, 3=pause
         write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
+        replay_worker.save_replay(info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
         CheckFastestTime = True
         Status = 4  # Over finish
         if FinishSpline == 1.0001 or TrueLength == 0:
@@ -377,10 +398,10 @@ def acUpdate(deltaT):
             nextframetime = time + round(deltaT*1000)
             if nextframetime - nextfiltertime > (round(deltaT*1000))/2:
                 data_collected.append((ActualSpline, time))
-#                ac.log("timepoint: " + str(time))
 
     ac.setText(line1, StatusList[Status])
     window_timing.update()
+    replay_worker.update()
 
     if ShowFuel:
         ac.setText(line4, lang["fuel"] + "{:.1f}".format(info.physics.fuel) + " l")
@@ -703,7 +724,7 @@ class SplitNotificationWindow:
         
         self.default_fontsize = 20
         self.padding = 12
-        self.windowWidth = self.split_notification_size * 120  + 2 * self.padding
+        self.windowWidth = self.split_notification_size * 120 + 2 * self.padding
         self.windowHeight = self.split_notification_size * self.default_fontsize + 2 * self.padding
 
         ac.setTitle(self.window, "")
@@ -1044,15 +1065,13 @@ def write_reference_file(origin_data, path, time):
              "\n#Driver: " + ac.getDriverName(0),
              "\n#Local date & time: " + datetime.now().strftime("%d-%m-%Y, %H:%M"),
              "\n#In-game time: " + weather["GAMETIME"]["HOUR"],
-             "\n#Stage time: " + str(int(time // 60000)).zfill(2) + ":" + str(time // 1000 % 60).zfill(2) + "." + str(
-                 int(time % 1000)).zfill(3),
+             "\n#Stage time: " + str(int(time // 60000)).zfill(2) + ":" + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3),
              "\n#Speed on startline: {:.2f}".format(StartSpeed) + " km/h",
              "\n#Comments: ",
              "\n#Weather: " + weather["WEATHER"]["NAME"],
              "\n#Temperature Road: " + weather["TEMPERATURE"]["ROAD"],
              "\n#Temperature Air: " + weather["TEMPERATURE"]["AMBIENT"],
-             "\n#Wind: " + weather["WIND"]["SPEED_KMH_MAX"] + " km/h from " + weather["WIND"][
-                 "DIRECTION_DEG"] + " deg\n"]
+             "\n#Wind: " + weather["WIND"]["SPEED_KMH_MAX"] + " km/h from " + weather["WIND"]["DIRECTION_DEG"] + " deg\n"]
     if OnServer:
         write.append("#Game mode: Online\n")
         write.append("#Speed trap value on startline: " + str(SpeedTrapValue) + " km/h\n")
@@ -1251,7 +1270,7 @@ def reset_start_stop(*args):
     global Status, FinishSpline
     if ac.getCarState(0, acsys.CS.LapTime) == 0:
         Status = 0
-        ac.setBackgroundColor(button_reset_start_stop, 0,0,0)
+        ac.setBackgroundColor(button_reset_start_stop, 0, 0, 0)
         hide_reset_yn()
         StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 1.0001, "TrueLength": 0}
         FinishSpline = 1.0001
@@ -1267,4 +1286,57 @@ def reset_variables():
     SpeedTrapValue = 0
     StartChecked = False
     window_split_notification.last_current_sector = 1
-    window_split_notification.last_time_shown = 2000000000
+    window_split_notification.last_time_shown = 200000000000
+
+
+class SaveReplayWorker:
+    def __init__(self, ac_path, replay_path, active=True):
+        self.active = active
+        self.ac_path = ac_path
+        self.replay_path = replay_path
+        self.general_cfg = configparser.ConfigParser(inline_comment_prefixes=";")
+        self.general_cfg.read(ac_path + "cfg/extension/general.ini")
+        self.save_replay_on = 200000000000
+        self.move_file_on = 200000000000
+        self.file_name = ""
+        self.unpress_keys = False
+
+    def update(self):
+        if self.active:
+            if self.unpress_keys:
+                ac.log(AppName + ": Replay file saving finished")
+                ctypes.windll.user32.keybd_event(0x10, 0, 0x0002, 0)
+                ctypes.windll.user32.keybd_event(0x11, 0, 0x0002, 0)
+                ctypes.windll.user32.keybd_event(0x53, 0, 0x0002, 0)
+                self.unpress_keys = False
+
+            if self.save_replay_on - time.time() < 0:
+                ac.log(AppName + ": Replay file saving in progress")
+                ctypes.windll.user32.keybd_event(0x10, 0, 0, 0)
+                ctypes.windll.user32.keybd_event(0x11, 0, 0, 0)
+                ctypes.windll.user32.keybd_event(0x53, 0, 0, 0)
+                self.unpress_keys = True
+                self.save_replay_on = 200000000000
+
+            if self.move_file_on - time.time() < 0:
+                # move file to replay save div and set name
+                os.makedirs(self.replay_path, exist_ok=True)
+                os.rename(self.ac_path + "replay/clips/" + os.listdir(self.ac_path + "replay/clips")[-1], self.replay_path + self.file_name)
+                self.move_file_on = 200000000000
+
+    def save_replay(self, stage_time):
+        if self.active:
+            ac.log(AppName + ": Replay saving started")
+            self.file_name = str(int(stage_time // 60000)).zfill(2) + "." + str(stage_time // 1000 % 60).zfill(2) + "." + str(int(stage_time % 1000)).zfill(3) + "_" + ac.getDriverName(0) + "_" + ac.getCarName(0).replace("_", "-") + ".acreplay"
+            # put stage time from millis to int seconds
+            stage_time = int(stage_time / 1000)
+            with open(self.ac_path + "cfg/extension/general.ini", "w") as f:
+                try:
+                    self.general_cfg.set("REPLAY", "CLIP_DURATION", str(stage_time + 7))
+                except configparser.NoSectionError:
+                    self.general_cfg.add_section("REPLAY")
+                    self.general_cfg.set("REPLAY", "CLIP_DURATION", str(stage_time + 7))
+                self.general_cfg.write(f)
+
+            self.save_replay_on = time.time() + 2
+            self.move_file_on = time.time() + 3
