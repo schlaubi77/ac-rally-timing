@@ -170,10 +170,9 @@ try:
     ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, document_path_buf)
     assetto_corsa_folder_path = document_path_buf.value + "/Assetto Corsa/"
     if not os.path.exists(assetto_corsa_folder_path + "cfg/extension/general.ini"):
+        os.makedirs(assetto_corsa_folder_path + "cfg/extension/", exist_ok=True)
         open(assetto_corsa_folder_path + "cfg/extension/general.ini", 'w').close()
         ac.log(AppName + ": general.ini not found in cfg/extension folder, created new one")
-#        save_replay = False
-#        ac.log(AppName + ": " + str(assetto_corsa_folder_path + "cfg/extension/general.ini") + " does not exist. Replays will not be saved automatically")
     else:
         ac.log(AppName + ": Replay saving initialised")
 except OSError:
@@ -1190,13 +1189,14 @@ def fix_reffile_amount_and_choose_fastest():
                 slowest_file = e[4:13] + "_" + e[15:33].strip() + "_" + e[33:].replace(" ", "-")
                 num_files += 1
         # fastest
-        if time < fastest_time and e[15:33].strip() == driver and e[33:].replace(" ",
-                                                                                 "-") == car:  # add condition to match current car and player name
+        if time < fastest_time and e[15:33].strip() == driver and e[33:].replace(" ", "-") == car:  # add condition to match current car and player name
             fastest_time = time
             fastest_file = e[4:13] + "_" + e[15:33].strip() + "_" + e[33:].replace(" ", "-")
 
     if num_files > MaxRefFiles and MaxRefFiles != 0:
         os.remove(ReferenceFolder + "/" + slowest_file + ".refl")
+        # remove corresponding replay
+        os.remove("apps/python/RallyTiming/replays/" + TrackName + "/" + slowest_file + ".acreplay")
         window_choose_reference.refilterList()
 
         # delete more if there are too many
@@ -1290,8 +1290,8 @@ def reset_start_stop(*args):
         hide_reset_yn()
         StartFinishSplines[TrackName] = {"StartSpline": 0, "FinishSpline": 1.0001, "TrueLength": 0}
         FinishSpline = 1.0001
-        with open(StartFinishJson, "w") as file:
-            json.dump(StartFinishSplines, file, indent=4)
+        with open(StartFinishJson, "w") as f:
+            json.dump(StartFinishSplines, f, indent=4)
 
 
 def reset_variables():
@@ -1315,6 +1315,7 @@ class SaveReplayWorker:
         self.general_cfg.read(ac_path + "cfg/extension/general.ini")
         self.save_replay_on = 200000000000
         self.move_file_on = 200000000000
+        self.old_clip_duration = self.general_cfg.getint("REPLAY", "CLIP_DURATION", fallback=30)
         self.file_name = ""
         self.unpress_keys = False
 
@@ -1345,7 +1346,7 @@ class SaveReplayWorker:
                         os.makedirs(self.replay_path, exist_ok=True)
                         shutil.move(replayclip_file , self.replay_path + self.file_name)
                         with open(self.ac_path + "cfg/extension/general.ini", "w") as f:
-                            self.general_cfg.set("REPLAY", "CLIP_DURATION", str(oldclipduration))
+                            self.general_cfg.set("REPLAY", "CLIP_DURATION", str(self.old_clip_duration))
                             self.general_cfg.write(f, space_around_delimiters=False)
                     else:
                         ac.log(AppName + ": Replay clip not found!")
@@ -1354,7 +1355,6 @@ class SaveReplayWorker:
                 self.move_file_on = 200000000000
 
     def save_replay(self, stage_time):
-        global oldclipduration
         if self.active:
             ac.log(AppName + ": Replay saving started")
             self.file_name = str(int(stage_time // 60000)).zfill(2) + "." + str(stage_time // 1000 % 60).zfill(2) + "." + str(int(stage_time % 1000)).zfill(3) + "_" + ac.getDriverName(0) + "_" + ac.getCarName(0).replace("_", "-") + ".acreplay"
@@ -1362,10 +1362,8 @@ class SaveReplayWorker:
             stage_time = round(stage_time / 1000)
             with open(self.ac_path + "cfg/extension/general.ini", "w") as f:
                 try:
-                    oldclipduration = self.general_cfg.getint("REPLAY", "CLIP_DURATION")
                     self.general_cfg.set("REPLAY", "CLIP_DURATION", str(stage_time + ReplayIntro + ReplayOutro))
                 except configparser.NoSectionError:
-                    oldclipduration = 10
                     self.general_cfg.add_section("REPLAY")
                     self.general_cfg.set("REPLAY", "CLIP_DURATION", str(stage_time + ReplayIntro + ReplayOutro))
                 self.general_cfg.write(f, space_around_delimiters=False)
