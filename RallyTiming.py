@@ -46,12 +46,13 @@
 # cleanup code                                                        #
 # add icons, add invalidate option (wheels off track)                 #
 #######################################################################
-import time
 from datetime import datetime
-import sys, ac, acsys, os, json, math, configparser, ctypes, shutil
+import sys, ac, acsys, os, json, math, configparser, time
 sysdir='apps/python/RallyTiming/libs'
 sys.path.insert(0, sysdir)
 os.environ['PATH'] = os.environ['PATH'] + ";."
+import ctypes, shutil
+from ctypes import wintypes, windll
 from libs.sim_info import info
 
 config = configparser.ConfigParser(inline_comment_prefixes=';')
@@ -169,8 +170,10 @@ try:
     ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, document_path_buf)
     assetto_corsa_folder_path = document_path_buf.value + "/Assetto Corsa/"
     if not os.path.exists(assetto_corsa_folder_path + "cfg/extension/general.ini"):
-        save_replay = False
-        ac.log(AppName + ": " + str(assetto_corsa_folder_path + "cfg/extension/general.ini") + " does not exist. Replays will not be saved automatically")
+        open(assetto_corsa_folder_path + "cfg/extension/general.ini", 'w').close()
+        ac.log(AppName + ": general.ini not found in cfg/extension folder, created new one")
+#        save_replay = False
+#        ac.log(AppName + ": " + str(assetto_corsa_folder_path + "cfg/extension/general.ini") + " does not exist. Replays will not be saved automatically")
     else:
         ac.log(AppName + ": Replay saving initialised")
 except OSError:
