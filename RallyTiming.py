@@ -1,13 +1,15 @@
 #######################################################################
-# Rally Timing v1.54                                                  #
+# Rally Timing v1.60                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 30/06/2023                            #
+# Copyright wimdes & schlaubi77 04/07/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.60 add auto save replay with reference files                     #
+# v1.55 fix start/finish registration (new bug introduced in 1.54)    #
 # v1.54 adjustable interval for refl file creation                    #
 #       fix YN buttons not disappearing & truelength registration     #
 #       clear reference data & chooser window after deleting reffiles #
@@ -46,16 +48,17 @@
 #######################################################################
 import time
 from datetime import datetime
-import sys, ac, acsys, os, json, math, configparser, ctypes
+import sys, ac, acsys, os, json, math, configparser, ctypes, shutil
 sysdir='apps/python/RallyTiming/libs'
 sys.path.insert(0, sysdir)
 os.environ['PATH'] = os.environ['PATH'] + ";."
 from libs.sim_info import info
 
 config = configparser.ConfigParser(inline_comment_prefixes=';')
-config.read("apps/python/RallyTiming/config/config.ini")
+config.optionxform = str
 
 ###### App settings from config file
+config.read("apps/python/RallyTiming/config/config.ini")
 StartSpeedLimit = config.getint("STARTVERIFICATION", "startspeedlimit")
 MaxStartLineDistance = config.getfloat("STARTVERIFICATION", "maxstartlinedistance")
 ShowStartSpeed = config.getboolean("STARTVERIFICATION", "showstartspeed")
@@ -70,6 +73,10 @@ ResetKey = config.getint("RESETKEY", "resetkey")
 EnableWheelButton = config.getboolean("RESETWHEEL", "enablewheelbutton")
 WheelID = config.getint("RESETWHEEL", "wheelid") - 1
 ButtonID = config.getint("RESETWHEEL", "buttonid") - 1
+save_replay = config.getboolean("REPLAY", "replaysave")
+ReplayIntro = config.getint("REPLAY", "replayintro")
+ReplayOutro = config.getint("REPLAY", "replayoutro")
+
 
 with open("apps/python/RallyTiming/config/lang.json", "r", encoding="utf-8") as file:
     lang = json.load(file)
@@ -135,23 +142,27 @@ try:
 except FileNotFoundError:
     StartFinishSplines = {}
     StartSpline = 0
-    TrueLength = 0
     FinishSpline = 1.0001   # add slight offset that can be detected
-    Status = 0
-    StartFinishSplines[TrackName] = {"StartSpline": StartSpline, "FinishSpline": FinishSpline, "TrueLength": TrueLength}
+    TrueLength = (FinishSpline - StartSpline) * SplineLength
+    StartFinishSplines[TrackName] = {"StartSpline": StartSpline, "FinishSpline": FinishSpline, "TrueLength": round(TrueLength)}
 else:
     StartSpline = StartFinishSplines.get(TrackName, {}).get("StartSpline", 0)
     FinishSpline = StartFinishSplines.get(TrackName, {}).get("FinishSpline", 1.0001)
     TrueLength = StartFinishSplines.get(TrackName, {}).get("TrueLength", 0)
+    if TrueLength == 0:
+        TrueLength = (FinishSpline - StartSpline) * SplineLength
     Status = 1 if StartSpline else 0
     if FinishSpline == 0:    # fix for bad finishspline data in old files
         FinishSpline = 1.0001
-        StartFinishSplines[TrackName] = {"StartSpline": StartSpline, "FinishSpline": FinishSpline, "TrueLength": TrueLength}
+    if FinishSpline == 1.0001:
+        TrueLength = (FinishSpline - StartSpline) * SplineLength
+    if TrueLength == 0:
+        TrueLength = (FinishSpline - StartSpline) * SplineLength
+    StartFinishSplines[TrackName] = {"StartSpline": StartSpline, "FinishSpline": FinishSpline, "TrueLength": round(TrueLength)}
 with open(StartFinishJson, "w") as file:
     json.dump(StartFinishSplines, file, indent=4)
 
 ##### Save replay init
-save_replay = True
 replay_length_ini_path = ""
 try:
     document_path_buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
@@ -320,6 +331,8 @@ def acUpdate(deltaT):
 
     # fixes for status during replays
     if info.graphics.status == 1:
+        if FinishSpline == 1:
+            FinishSpline = 0.9999999
         if StartSpline < ActualSpline < FinishSpline:
             Status = 3  # in stage
         if Status in (3, 5) and ActualSpline > FinishSpline:
@@ -1295,6 +1308,7 @@ class SaveReplayWorker:
         self.ac_path = ac_path
         self.replay_path = replay_path
         self.general_cfg = configparser.ConfigParser(inline_comment_prefixes=";")
+        self.general_cfg.optionxform = str
         self.general_cfg.read(ac_path + "cfg/extension/general.ini")
         self.save_replay_on = 200000000000
         self.move_file_on = 200000000000
@@ -1319,24 +1333,44 @@ class SaveReplayWorker:
                 self.save_replay_on = 200000000000
 
             if self.move_file_on - time.time() < 0:
-                # move file to replay save div and set name
-                os.makedirs(self.replay_path, exist_ok=True)
-                os.rename(self.ac_path + "replay/clips/" + os.listdir(self.ac_path + "replay/clips")[-1], self.replay_path + self.file_name)
+                # check if clip present and no older than 10 seconds
+                try:
+                    replayclip_file = (self.ac_path + "replay/clips/" + os.listdir(self.ac_path + "replay/clips")[-1])
+                    file_time = os.path.getmtime(replayclip_file)
+                    if time.time() - file_time < 10:
+                        # move file to replay save div and set name
+                        os.makedirs(self.replay_path, exist_ok=True)
+                        shutil.move(replayclip_file , self.replay_path + self.file_name)
+                        with open(self.ac_path + "cfg/extension/general.ini", "w") as f:
+                            self.general_cfg.set("REPLAY", "CLIP_DURATION", str(oldclipduration))
+                            self.general_cfg.write(f, space_around_delimiters=False)
+                    else:
+                        ac.log(AppName + ": Replay clip not found!")
+                except IndexError:
+                        ac.log(AppName + ": Replay clip not found!")
                 self.move_file_on = 200000000000
 
     def save_replay(self, stage_time):
+        global oldclipduration
         if self.active:
             ac.log(AppName + ": Replay saving started")
             self.file_name = str(int(stage_time // 60000)).zfill(2) + "." + str(stage_time // 1000 % 60).zfill(2) + "." + str(int(stage_time % 1000)).zfill(3) + "_" + ac.getDriverName(0) + "_" + ac.getCarName(0).replace("_", "-") + ".acreplay"
             # put stage time from millis to int seconds
-            stage_time = int(stage_time / 1000)
+            stage_time = round(stage_time / 1000)
             with open(self.ac_path + "cfg/extension/general.ini", "w") as f:
                 try:
-                    self.general_cfg.set("REPLAY", "CLIP_DURATION", str(stage_time + 7))
+                    oldclipduration = self.general_cfg.getint("REPLAY", "CLIP_DURATION")
+                    self.general_cfg.set("REPLAY", "CLIP_DURATION", str(stage_time + ReplayIntro + ReplayOutro))
                 except configparser.NoSectionError:
+                    oldclipduration = 10
                     self.general_cfg.add_section("REPLAY")
-                    self.general_cfg.set("REPLAY", "CLIP_DURATION", str(stage_time + 7))
-                self.general_cfg.write(f)
-
-            self.save_replay_on = time.time() + 2
-            self.move_file_on = time.time() + 3
+                    self.general_cfg.set("REPLAY", "CLIP_DURATION", str(stage_time + ReplayIntro + ReplayOutro))
+                self.general_cfg.write(f, space_around_delimiters=False)
+            self.save_replay_on = time.time() + ReplayOutro
+            self.move_file_on = time.time() + ReplayOutro + 1
+            
+            replay_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'replays')
+            with open("apps/python/RallyTiming/config/config.ini","w") as configfile:
+                config.set("REPLAY", "replaylocation", str(replay_folder))
+                config.write(configfile, space_around_delimiters=False)
+  
