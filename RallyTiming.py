@@ -1174,7 +1174,7 @@ def fix_reffile_amount_and_choose_fastest():
     global reference_data
 
     fastest_time = 2000000000
-    fastest_file = 0
+    fastest_file = ""
     num_files = 0
     slowest_time = 0
     slowest_file = ""
@@ -1196,14 +1196,20 @@ def fix_reffile_amount_and_choose_fastest():
     if num_files > MaxRefFiles and MaxRefFiles != 0:
         os.remove(ReferenceFolder + "/" + slowest_file + ".refl")
         # remove corresponding replay
-        os.remove("apps/python/RallyTiming/replays/" + TrackName + "/" + slowest_file + ".acreplay")
+        ac.log(AppName + ": Deleted " + slowest_file + ".refl")
+        try:
+            os.remove("apps/python/RallyTiming/replays/" + TrackName + "/" + slowest_file + ".acreplay")
+            ac.log(AppName + ": Deleted " + slowest_file + ".acreplay")
+        except FileNotFoundError:
+            ac.log(AppName + ": Tried to delete " + slowest_file + ".acreplay but the file didn't exist")
+
         window_choose_reference.refilterList()
 
         # delete more if there are too many
         if num_files - 1 > MaxRefFiles:
             fix_reffile_amount_and_choose_fastest()
 
-    if fastest_file != 0:
+    if fastest_file != "":
         reference_data = read_reference_file(ReferenceFolder + "/" + fastest_file + ".refl")
         window_choose_reference.list.select(format_filename_for_list(fastest_file))
 
@@ -1374,4 +1380,3 @@ class SaveReplayWorker:
             with open("apps/python/RallyTiming/config/config.ini","w") as configfile:
                 config.set("REPLAY", "replaylocation", str(replay_folder))
                 config.write(configfile, space_around_delimiters=False)
-  
