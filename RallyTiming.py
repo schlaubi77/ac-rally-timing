@@ -597,19 +597,19 @@ class TimingWindow:
         ac.setVisible(self.window, int(self.isActivated))
 
 
-def searchNearest(sorted_list, searched, left, right):
+def searchNearest(data_list, searched, left, right):
     if left == right:
-        if sorted_list[left][0] > searched:
-            return sorted_list[max(left - 1, 0)], sorted_list[left]
+        if data_list[left][0] > searched:
+            return data_list[max(left - 1, 0)], data_list[left]
         else:
-            return sorted_list[left], sorted_list[min(left + 1, sorted_list(list) - 1)]
+            return data_list[left], data_list[min(left + 1, len(data_list) - 1)]
     if left > right:
-        return sorted_list[right], sorted_list[min(left, len(list) - 1)]
+        return data_list[right], data_list[min(left, len(data_list) - 1)]
     middle = (left + right) // 2
-    if sorted_list[middle][0] <= searched:
-        return searchNearest(sorted_list, searched, middle + 1, right)
+    if data_list[middle][0] <= searched:
+        return searchNearest(data_list, searched, middle + 1, right)
     else:
-        return searchNearest(sorted_list, searched, left, middle - 1)
+        return searchNearest(data_list, searched, left, middle - 1)
 
 
 class ProgressBarWindow:
@@ -1203,7 +1203,7 @@ def fix_reffile_amount_and_choose_fastest():
         if num_files - 1 > MaxRefFiles:
             fix_reffile_amount_and_choose_fastest()
     else:
-        ac.log(AppName + ": No files deleted" + str(num_files))
+        ac.log(AppName + ": No files deleted")
 
     if fastest_file != "":
         reference_data = read_reference_file(ReferenceFolder + "/" + fastest_file + ".refl")
