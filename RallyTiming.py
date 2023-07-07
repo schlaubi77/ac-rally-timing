@@ -48,17 +48,17 @@
 #######################################################################
 from datetime import datetime
 import sys, ac, acsys, os, json, math, configparser, time
-sysdir='apps/python/RallyTiming/libs'
+sysdir = 'apps/python/RallyTiming/libs'
 sys.path.insert(0, sysdir)
 os.environ['PATH'] = os.environ['PATH'] + ";."
 import ctypes, shutil
-from ctypes import wintypes, windll
+from ctypes import wintypes
 from libs.sim_info import info
 
 config = configparser.ConfigParser(inline_comment_prefixes=';')
 config.optionxform = str
 
-###### App settings from config file
+# App settings from config file
 config.read("apps/python/RallyTiming/config/config.ini")
 StartSpeedLimit = config.getint("STARTVERIFICATION", "startspeedlimit")
 MaxStartLineDistance = config.getfloat("STARTVERIFICATION", "maxstartlinedistance")
@@ -83,7 +83,7 @@ with open("apps/python/RallyTiming/config/lang.json", "r", encoding="utf-8") as 
     lang = json.load(file)
 lang = lang[str(Language)]
 
-###### Default variables
+# Default variables
 AppName = "Rally Timing"
 appWindow = 0
 StartFinishJson = "apps/python/RallyTiming/StartFinishSplines.json"
@@ -103,13 +103,13 @@ CheckFastestTime = False
 SavedReplayMode = False
 LastGraphicsStatus = 0
 
-###### Determine track name & layout
+# Determine track name & layout
 if ac.getTrackConfiguration(0) != "":
     TrackName = (ac.getTrackName(0) + "/" + ac.getTrackConfiguration(0))
 else:
     TrackName = ac.getTrackName(0)
 
-###### Reference Laps
+# Reference Laps
 ReferenceFolder = "apps/python/RallyTiming/referenceLaps/" + TrackName
 
 window_choose_reference = 0
@@ -129,14 +129,14 @@ appWindowSize = (0, 0)
 if not os.path.exists(ReferenceFolder):
     os.makedirs(ReferenceFolder)
 
-###### Determine if local game or on server
+# Determine if local game or on server
 if ac.getServerName() == "":
     OnServer = False
 else:
     OnServer = True
     StatusList[5] = lang["phase.invalidatedserver"]
 
-###### Load start and finish positions from json file
+# Load start and finish positions from json file
 try:
     with open(StartFinishJson, "r") as file:
         StartFinishSplines = json.load(file)
@@ -163,7 +163,7 @@ else:
 with open(StartFinishJson, "w") as file:
     json.dump(StartFinishSplines, file, indent=4)
 
-##### Save replay init
+# Save replay init
 replay_length_ini_path = ""
 try:
     document_path_buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
@@ -188,7 +188,7 @@ red = (1, 0, 0, 1)
 
 line1, line2, line3, line4, line5, line6 = [0 for i in range(6)]
 
-###### write some stuff into log and console
+# write some stuff into log and console
 ac.console(AppName + ": Track Name: " + TrackName)
 # ac.console (AppName + ": Meter: {:.10f}".format(Meter))
 # ac.console (AppName + ": Centimeter: {:.10f}".format(Meter / 100))
@@ -223,11 +223,11 @@ def acMain(ac_version):
     button_open_reference =     create_button(lang["button.openreference"],     10, appWindowSize[1] + 34, 310, 25, listener=toggle_reference)
     button_open_notifications = create_button(lang["button.opennotifications"], 10, appWindowSize[1] + 68, 310, 25, listener=toggle_notifications)
 
-    button_delete_reffiles =  create_button(lang["button.deletereffiles"], 10, appWindowSize[1] + 102, 310, 25, color=(0.8,0,0), listener=show_delete_yn)
+    button_delete_reffiles =  create_button(lang["button.deletereffiles"], 10, appWindowSize[1] + 102, 310, 25, color=(0.8, 0, 0), listener=show_delete_yn)
     button_delete_reffiles_y = create_button("Y", 320, appWindowSize[1] + 102, 25, 25, listener=delete_reffiles)
     button_delete_reffiles_n = create_button("N", 345, appWindowSize[1] + 102, 25, 25, listener=hide_delete_yn)
 
-    button_reset_start_stop = create_button(lang["button.resetstartstop"], 10, appWindowSize[1] + 136, 310, 25, color=(0.8,0,0), listener=show_reset_yn)
+    button_reset_start_stop = create_button(lang["button.resetstartstop"], 10, appWindowSize[1] + 136, 310, 25, color=(0.8, 0, 0), listener=show_reset_yn)
     button_reset_start_stop_y = create_button("Y", 320, appWindowSize[1] + 136, 25, 25, listener=reset_start_stop)
     button_reset_start_stop_n = create_button("N", 345, appWindowSize[1] + 136, 25, 25, listener=hide_reset_yn)
 
@@ -267,7 +267,6 @@ def acUpdate(deltaT):
     LapTime = ac.getCarState(0, acsys.CS.LapTime)
     LapCount = ac.getCarState(0, acsys.CS.LapCount)
     ac.addOnChatMessageListener(appWindow, chat_message_listener)
-
 
     # detect when a replay from disk is playing (game starting straight into replay mode)
     if LastGraphicsStatus == 0:
@@ -409,7 +408,7 @@ def acUpdate(deltaT):
         if info.graphics.status == 2 or SavedReplayMode:
             if len(data_collected) == 0:
                 data_collected.append((ActualSpline, time))
-            nextfiltertime =  data_collected[-1][-1] + RefFileRefreshInterval
+            nextfiltertime = data_collected[-1][-1] + RefFileRefreshInterval
             nextframetime = time + round(deltaT*1000)
             if nextframetime - nextfiltertime > (round(deltaT*1000))/2:
                 data_collected.append((ActualSpline, time))
@@ -474,8 +473,7 @@ class ChooseReferenceWindow:
         ac.setValue(self.otherDriversBox, True)
         ac.addOnCheckBoxChanged(self.otherDriversBox, self.driverStateChangedFunction)
 
-        self.list = SelectionList(1, 20, 65, [str(p) for p in os.listdir(self.path)], self.window, height=300,
-                                  width=450)
+        self.list = SelectionList(1, 20, 65, [str(p) for p in os.listdir(self.path)], self.window, height=300, width=450)
 
     def carStateChanged(self, *args):
         self.showOtherCars = bool(args[1])
@@ -491,8 +489,7 @@ class ChooseReferenceWindow:
         car = ac.getCarName(0).replace("_", "-")
         driver = ac.getDriverName(0)
         for e in elements:
-            if (self.showOtherDrivers or "_".join(e.split("_")[1:-1]) == driver) and (
-                    self.showOtherCars or e.split("_")[-1] == car):
+            if (self.showOtherDrivers or "_".join(e.split("_")[1:-1]) == driver) and (self.showOtherCars or e.split("_")[-1] == car):
                 show.append(e)
         self.list.setElements(show)
 
@@ -600,19 +597,19 @@ class TimingWindow:
         ac.setVisible(self.window, int(self.isActivated))
 
 
-def searchNearest(list, searched, left, right):
+def searchNearest(sorted_list, searched, left, right):
     if left == right:
-        if list[left][0] > searched:
-            return list[max(left - 1, 0)], list[left]
+        if sorted_list[left][0] > searched:
+            return sorted_list[max(left - 1, 0)], sorted_list[left]
         else:
-            return list[left], list[min(left + 1, len(list) - 1)]
+            return sorted_list[left], sorted_list[min(left + 1, sorted_list(list) - 1)]
     if left > right:
-        return list[right], list[min(left, len(list) - 1)]
+        return sorted_list[right], sorted_list[min(left, len(list) - 1)]
     middle = (left + right) // 2
-    if list[middle][0] <= searched:
-        return searchNearest(list, searched, middle + 1, right)
+    if sorted_list[middle][0] <= searched:
+        return searchNearest(sorted_list, searched, middle + 1, right)
     else:
-        return searchNearest(list, searched, left, middle - 1)
+        return searchNearest(sorted_list, searched, left, middle - 1)
 
 
 class ProgressBarWindow:
@@ -658,7 +655,6 @@ class ProgressBarWindow:
 
         splinePos = ac.getCarState(0, acsys.CS.NormalizedSplinePosition)
         last_delta = 0
-        split_delta_values = []
 
         if self.show_splits:
             current_sector = int((splinePos - StartSpline) / (FinishSpline - StartSpline) * (self.splits + 1)) + 1
@@ -674,12 +670,9 @@ class ProgressBarWindow:
 
                     ac.glColor4f(*(green[:3] + (self.transparency,)))               # color splits
 
-#                    ac.console(str(split_i - split_times[i - 1] - last_delta))
                     if split_i - split_times[i - 1] - last_delta > 0:
                         ac.glColor4f(*(red[:3] + (self.transparency,)))
                     last_delta = split_i - split_times[i - 1]
-#                    split_delta_values.append("{:.3f}".format(last_delta/1000))
-#                    ac.console(str(split_delta_values))
 
                     ac.glBegin(1)
                     ac.glQuad(self.windowWidth / 2 - self.barWidth / 2, int(self.barHeight * (self.splits + 1 - i) / (self.splits + 1)) + 20, self.barWidth, self.barHeight / (self.splits + 1))
@@ -1180,18 +1173,19 @@ def fix_reffile_amount_and_choose_fastest():
     slowest_file = ""
     car = ac.getCarName(0).replace("_", "-")  # get current car name
     driver = ac.getDriverName(0)  # get current driver name
+    window_choose_reference.refilterList()  # idk why this line is nessecary
     for e in window_choose_reference.list.elements:
         time = 60000 * int(e[4:6]) + 1000 * int(e[7:9]) + int(e[10:13])
-        # slowest
-        if MaxRefFiles != 0 and e[15:33].strip() == driver and e[33:].replace(" ", "-") == car:
-            if time > slowest_time:
+        if e[15:33].strip() == driver and e[33:].replace(" ", "-") == car:
+            # slowest
+            if MaxRefFiles != 0 and time > slowest_time:
                 slowest_time = time
                 slowest_file = e[4:13] + "_" + e[15:33].strip() + "_" + e[33:].replace(" ", "-")
                 num_files += 1
-        # fastest
-        if time < fastest_time and e[15:33].strip() == driver and e[33:].replace(" ", "-") == car:  # add condition to match current car and player name
-            fastest_time = time
-            fastest_file = e[4:13] + "_" + e[15:33].strip() + "_" + e[33:].replace(" ", "-")
+            # fastest
+            if time < fastest_time:
+                fastest_time = time
+                fastest_file = e[4:13] + "_" + e[15:33].strip() + "_" + e[33:].replace(" ", "-")
 
     if num_files > MaxRefFiles and MaxRefFiles != 0:
         os.remove(ReferenceFolder + "/" + slowest_file + ".refl")
@@ -1208,6 +1202,8 @@ def fix_reffile_amount_and_choose_fastest():
         # delete more if there are too many
         if num_files - 1 > MaxRefFiles:
             fix_reffile_amount_and_choose_fastest()
+    else:
+        ac.log(AppName + ": No files deleted" + str(num_files))
 
     if fastest_file != "":
         reference_data = read_reference_file(ReferenceFolder + "/" + fastest_file + ".refl")
@@ -1274,7 +1270,7 @@ def delete_reffiles(*args):
     window_choose_reference.refilterList()
     reference_data = []
     ac.setText(window_timing.label_ref, "Target:    (none)")
-    ac.setBackgroundColor(button_delete_reffiles, 0,0,0)
+    ac.setBackgroundColor(button_delete_reffiles, 0, 0, 0)
     hide_delete_yn()
 
 
@@ -1350,14 +1346,14 @@ class SaveReplayWorker:
                     if time.time() - file_time < 10:
                         # move file to replay save div and set name
                         os.makedirs(self.replay_path, exist_ok=True)
-                        shutil.move(replayclip_file , self.replay_path + self.file_name)
+                        shutil.move(replayclip_file, self.replay_path + self.file_name)
                         with open(self.ac_path + "cfg/extension/general.ini", "w") as f:
                             self.general_cfg.set("REPLAY", "CLIP_DURATION", str(self.old_clip_duration))
                             self.general_cfg.write(f, space_around_delimiters=False)
                     else:
                         ac.log(AppName + ": Replay clip not found!")
                 except IndexError:
-                        ac.log(AppName + ": Replay clip not found!")
+                    ac.log(AppName + ": Replay clip not found!")
                 self.move_file_on = 200000000000
 
     def save_replay(self, stage_time):
@@ -1377,6 +1373,6 @@ class SaveReplayWorker:
             self.move_file_on = time.time() + ReplayOutro + 1
             
             replay_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'replays')
-            with open("apps/python/RallyTiming/config/config.ini","w") as configfile:
+            with open("apps/python/RallyTiming/config/config.ini", "w") as configfile:
                 config.set("REPLAY", "replaylocation", str(replay_folder))
                 config.write(configfile, space_around_delimiters=False)
