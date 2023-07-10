@@ -1,13 +1,15 @@
 #######################################################################
-# Rally Timing v1.60                                                  #
+# Rally Timing v1.61                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 04/07/2023                            #
+# Copyright wimdes & schlaubi77 10/07/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.61 show start spline position in app settings                    #
+#       auto increase replay file size (buffer) to at least 1GB       #
 # v1.60 add auto save replay with reference files                     #
 # v1.55 fix start/finish registration (new bug introduced in 1.54)    #
 # v1.54 adjustable interval for refl file creation                    #
@@ -1165,6 +1167,11 @@ def get_weather():
 
 def fix_reffile_amount_and_choose_fastest():
     global reference_data
+
+    with open("apps/python/RallyTiming/config/config.ini", "w") as configfile:
+        config.set("STARTVERIFICATION", "lasttrack", str(TrackName))
+        config.set("STARTVERIFICATION", "detectedstartspline", "{:.12f}".format(StartSpline))
+        config.write(configfile, space_around_delimiters=False)
 
     fastest_time = 2000000000
     fastest_file = ""
