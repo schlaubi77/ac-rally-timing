@@ -177,6 +177,12 @@ try:
         ac.log(AppName + ": general.ini not found in cfg/extension folder, created new one")
     else:
         ac.log(AppName + ": Replay saving initialised")
+        replay_size_cfg = configparser.ConfigParser(comment_prefixes=";")
+        replay_size_cfg.optionxform = str
+        replay_size_cfg.read(assetto_corsa_folder_path + "cfg/replay.ini")
+        replay_size_cfg.set("REPLAY", "MAX_SIZE_MB", str(max(1000, replay_size_cfg.getint("REPLAY", "MAX_SIZE_MB"))))
+        with open(assetto_corsa_folder_path + "cfg/replay.ini", "w") as f:
+            replay_size_cfg.write(f, space_around_delimiters=False)
 except OSError:
     save_replay = False
     ac.log(AppName + ": Windows dlls not found. Replays will not be saved automatically")
