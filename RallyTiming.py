@@ -181,7 +181,8 @@ try:
         replay_size_cfg = configparser.ConfigParser(comment_prefixes=";")
         replay_size_cfg.optionxform = str
         replay_size_cfg.read(assetto_corsa_folder_path + "cfg/replay.ini")
-        replay_size_cfg.set("REPLAY", "MAX_SIZE_MB", str(max(1000, replay_size_cfg.getint("REPLAY", "MAX_SIZE_MB"))))
+        max_size_mb = replay_size_cfg.get("REPLAY", "MAX_SIZE_MB").split(";")[0].strip()
+        replay_size_cfg.set("REPLAY", "MAX_SIZE_MB", str(max(1000, int(max_size_mb))))
         with open(assetto_corsa_folder_path + "cfg/replay.ini", "w") as f:
             replay_size_cfg.write(f, space_around_delimiters=False)
 except OSError:
