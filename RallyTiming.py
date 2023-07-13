@@ -1,7 +1,7 @@
 #######################################################################
 # Rally Timing v1.61                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 12/07/2023                            #
+# Copyright wimdes & schlaubi77 13/07/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
@@ -80,7 +80,6 @@ ButtonID = config.getint("RESETWHEEL", "buttonid") - 1
 save_replay = config.getboolean("REPLAY", "replaysave")
 ReplayIntro = config.getint("REPLAY", "replayintro")
 ReplayOutro = config.getint("REPLAY", "replayoutro")
-
 
 with open("apps/python/RallyTiming/config/lang.json", "r", encoding="utf-8") as file:
     lang = json.load(file)
@@ -231,7 +230,7 @@ def acMain(ac_version):
     ac.setBackgroundOpacity(appWindow, 0.1)
 
     if ac.getPosition(appWindow) == DEFAULT_WINDOW_POSITION:
-        ac.setPosition(appWindow, 300, 200)
+        ac.setPosition(appWindow, 25, 25)
 
     button_open_timing = create_button(lang["button.opentiming"], 10, appWindowSize[1], 150, 25, listener=toggle_timing_window)
     button_open_map    = create_button(lang["button.openmap"],   170, appWindowSize[1], 150, 25, listener=toggle_map)
@@ -467,7 +466,7 @@ class ChooseReferenceWindow:
         ac.setIconPosition(self.window, 16000, 16000)
 
         if ac.getPosition(self.window) == DEFAULT_WINDOW_POSITION:
-            ac.setPosition(self.window, 400, 300)
+            ac.setPosition(self.window, 150, 300)
 
         self.isActivated = False
         self.onActivate = self.on_activate
@@ -534,7 +533,7 @@ class TimingWindow:
         ac.setIconPosition(self.window, 16000, 16000)
 
         if ac.getPosition(self.window) == DEFAULT_WINDOW_POSITION:
-            ac.setPosition(self.window, 500, 400)
+            ac.setPosition(self.window, 500, 25)
 
         self.label_ref = ac.addLabel(self.window, "Target:    (none)")
         ac.setPosition(self.label_ref, 20, 5)
@@ -640,7 +639,7 @@ class ProgressBarWindow:
         ac.setIconPosition(self.window, 16000, 16000)
 
         if ac.getPosition(self.window) == DEFAULT_WINDOW_POSITION:
-            ac.setPosition(self.window, 600, 500)
+            ac.setPosition(self.window, 25, 300)
 
         self.isActivated = False
         self.onActivate = self.on_activate
@@ -745,7 +744,7 @@ class SplitNotificationWindow:
         ac.setIconPosition(self.window, 16000, 16000)
 
         if ac.getPosition(self.window) == DEFAULT_WINDOW_POSITION:
-            ac.setPosition(self.window, 700, 600)
+            ac.setPosition(self.window, 700, 25)
 
         self.isActivated = False
         self.onActivate = self.on_activate
