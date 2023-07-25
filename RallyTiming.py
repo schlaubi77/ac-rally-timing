@@ -1,13 +1,15 @@
 #######################################################################
-# Rally Timing v1.61                                                  #
+# Rally Timing v1.63                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 13/07/2023                            #
+# Copyright wimdes & schlaubi77 25/07/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.63 warning when track doesn't have AI line                       #
+# v1.62 include config.ini again                                      #
 # v1.61 show start spline position in app settings                    #
 #       auto increase replay file size (buffer) to at least 1GB       #
 #       windows don't spawn above each other anymore                  #
@@ -46,8 +48,8 @@
 #                                                                     #
 #######################################################################
 # TODO:                                                               #
-# cleanup code                                                        #
-# add icons, add invalidate option (wheels off track)                 #
+# add icons, cleanup code                                             #
+# add invalidate option (wheels off track & start speeding)           #
 #######################################################################
 from datetime import datetime
 import sys, ac, acsys, os, json, math, configparser, time
@@ -90,6 +92,8 @@ AppName = "Rally Timing"
 appWindow = 0
 StartFinishJson = "apps/python/RallyTiming/StartFinishSplines.json"
 SplineLength = ac.getTrackLength(0)
+if SplineLength == 0:
+    SplineLength = 555
 Status = 0  # 0 = Start Undefined, 1 = Start Found, 2 = Drive to start, 3 = in stage, 4 = over finish, 5 = invalidated, 6 = stopped at startline
 StatusList = [lang["phase.detect"], lang["phase.linefound"], lang["phase.gotostart"], lang["phase.instage"],
               lang["phase.finished"], lang["phase.invalidated"], lang["phase.atstartline"]]
@@ -200,7 +204,7 @@ DEFAULT_WINDOW_POSITION = (0, 80)
 line1, line2, line3, line4, line5, line6 = [0 for i in range(6)]
 
 # write some stuff into log and console
-ac.console(AppName + ": Track Name: " + TrackName)
+# ac.console(AppName + ": Track Name: " + TrackName)
 # ac.console (AppName + ": Meter: {:.10f}".format(Meter))
 # ac.console (AppName + ": Centimeter: {:.10f}".format(Meter / 100))
 # ac.log(AppName + " test entry")
@@ -441,6 +445,13 @@ def acUpdate(deltaT):
         ac.setText(line6, "XYStartDistance: {:.2f}".format(XYStartDistance()) + "  LapCount: {}".format(
             LapCount) + "  SpeedTrapValue: {}".format(SpeedTrapValue))
 
+    # alert if track has no AI line
+    if SplineLength == 555:
+        ac.setFontColor(line1, *red)
+        ac.setFontColor(line2, *red)
+        ac.setText(line1, "TRACK HAS NO AI LINE")
+        ac.setText(line2, "APP IS NOT FUNCTIONAL")
+
 
 def XYStartDistance():
     x1, y1, z1 = ac.ext_splineToWorld(0, StartSpline)
@@ -466,7 +477,7 @@ class ChooseReferenceWindow:
         ac.setIconPosition(self.window, 16000, 16000)
 
         if ac.getPosition(self.window) == DEFAULT_WINDOW_POSITION:
-            ac.setPosition(self.window, 150, 300)
+            ac.setPosition(self.window, 150, 350)
 
         self.isActivated = False
         self.onActivate = self.on_activate
