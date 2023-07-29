@@ -56,7 +56,7 @@ import sys, ac, acsys, os, json, math, configparser, time
 sysdir = 'apps/python/RallyTiming/libs'
 sys.path.insert(0, sysdir)
 os.environ['PATH'] = os.environ['PATH'] + ";."
-import ctypes, shutil
+import ctypes, shutil, zipfile
 from ctypes import wintypes
 from libs.sim_info import info
 
@@ -82,6 +82,10 @@ ButtonID = config.getint("RESETWHEEL", "buttonid") - 1
 save_replay = config.getboolean("REPLAY", "replaysave")
 ReplayIntro = config.getint("REPLAY", "replayintro")
 ReplayOutro = config.getint("REPLAY", "replayoutro")
+ImportReferenceFiles = config.getboolean("IMEXPORTING", "import")
+ImportReferenceFilePath = config.get("IMEXPORTING", "importpath").replace("\\", "/")
+ExportReferenceFiles = config.getboolean("IMEXPORTING", "export")
+ExportReferenceFilePath = config.get("IMEXPORTING", "exportpath").replace("\\", "/")
 
 with open("apps/python/RallyTiming/config/lang.json", "r", encoding="utf-8") as file:
     lang = json.load(file)
@@ -111,7 +115,7 @@ LastGraphicsStatus = 0
 
 # Determine track name & layout
 if ac.getTrackConfiguration(0) != "":
-    TrackName = (ac.getTrackName(0) + "/" + ac.getTrackConfiguration(0))
+    TrackName = ac.getTrackName(0) + "/" + ac.getTrackConfiguration(0)
 else:
     TrackName = ac.getTrackName(0)
 
@@ -269,6 +273,9 @@ def acMain(ac_version):
     line1, line2, line3, line4, line5, line6 = lines
 
     fix_reffile_amount_and_choose_fastest()
+
+    if ImportReferenceFiles:
+        import_reffiles(ImportReferenceFilePath)
 
     return AppName
 
@@ -1392,6 +1399,13 @@ class SaveReplayWorker:
                         with open(self.ac_path + "cfg/extension/general.ini", "w") as f:
                             self.general_cfg.set("REPLAY", "CLIP_DURATION", str(self.old_clip_duration))
                             self.general_cfg.write(f, space_around_delimiters=False)
+                        # export
+                        if ExportReferenceFiles:
+                            with zipfile.ZipFile(ExportReferenceFilePath + "/" + self.file_name.replace(".acreplay", ".zip"), "w", compression=zipfile.ZIP_DEFLATED) as zipF:
+                                zipF.write(self.replay_path + self.file_name, self.file_name)
+                                zipF.write(ReferenceFolder + "/" + self.file_name.replace(".acreplay", ".refl"), self.file_name.replace(".acreplay", ".refl"))
+                                ac.log(AppName + ": Exported to " + ExportReferenceFilePath + "/" + self.file_name.replace(".acreplay", ".zip"))
+
                     else:
                         ac.log(AppName + ": Replay clip not found!")
                 except IndexError:
@@ -1418,3 +1432,25 @@ class SaveReplayWorker:
             with open("apps/python/RallyTiming/config/config.ini", "w") as configfile:
                 config.set("REPLAY", "replaylocation", str(replay_folder))
                 config.write(configfile, space_around_delimiters=False)
+
+
+def import_reffiles(path):
+    try:
+        for import_file in os.listdir(path):
+            track = "none"
+            with open(path + "/" + import_file, "r") as f:
+                # find track
+                for ln in f:
+                    if ln.startswith("#Track:"):
+                        track = ln[8:].replace("\n", "")
+                        break
+                    if not ln.startswith("#"):
+                        break
+
+            if not track == "none":
+                shutil.move(path + "/" + import_file, "apps/python/RallyTiming/referenceLaps/" + track + "/" + import_file)
+                ac.log(AppName + ": Imported " + import_file + " to " + "apps/python/RallyTiming/referenceLaps/" + track + "/")
+            else:
+                ac.log(AppName + ": Couldn't import " + import_file)
+    except FileNotFoundError:
+        ac.log(AppName + ": The folder " + path + " does not exist")
