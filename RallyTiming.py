@@ -1401,10 +1401,13 @@ class SaveReplayWorker:
                             self.general_cfg.write(f, space_around_delimiters=False)
                         # export
                         if ExportReferenceFiles:
-                            with zipfile.ZipFile(ExportReferenceFilePath + "/" + self.file_name.replace(".acreplay", ".zip"), "w", compression=zipfile.ZIP_DEFLATED) as zipF:
-                                zipF.write(self.replay_path + self.file_name, self.file_name)
-                                zipF.write(ReferenceFolder + "/" + self.file_name.replace(".acreplay", ".refl"), self.file_name.replace(".acreplay", ".refl"))
-                                ac.log(AppName + ": Exported to " + ExportReferenceFilePath + "/" + self.file_name.replace(".acreplay", ".zip"))
+                            if os.path.exists(ExportReferenceFilePath):
+                                with zipfile.ZipFile(ExportReferenceFilePath + "/" + self.file_name.replace(".acreplay", ".zip"), "w", compression=zipfile.ZIP_DEFLATED) as zipF:
+                                    zipF.write(self.replay_path + self.file_name, self.file_name)
+                                    zipF.write(ReferenceFolder + "/" + self.file_name.replace(".acreplay", ".refl"), self.file_name.replace(".acreplay", ".refl"))
+                                    ac.log(AppName + ": Exported to " + ExportReferenceFilePath + "/" + self.file_name.replace(".acreplay", ".zip"))
+                            else:
+                                ac.log(AppName + ": folder at " + ExportReferenceFilePath + " does not exist")
 
                     else:
                         ac.log(AppName + ": Replay clip not found!")
@@ -1437,20 +1440,21 @@ class SaveReplayWorker:
 def import_reffiles(path):
     try:
         for import_file in os.listdir(path):
-            track = "none"
-            with open(path + "/" + import_file, "r") as f:
-                # find track
-                for ln in f:
-                    if ln.startswith("#Track:"):
-                        track = ln[8:].replace("\n", "")
-                        break
-                    if not ln.startswith("#"):
-                        break
+            if import_file.endswith(".refl"):
+                track = "none"
+                with open(path + "/" + import_file, "r") as f:
+                    # find track
+                    for ln in f:
+                        if ln.startswith("#Track:"):
+                            track = ln[8:].replace("\n", "")
+                            break
+                        if not ln.startswith("#"):
+                            break
 
-            if not track == "none":
-                shutil.move(path + "/" + import_file, "apps/python/RallyTiming/referenceLaps/" + track + "/" + import_file)
-                ac.log(AppName + ": Imported " + import_file + " to " + "apps/python/RallyTiming/referenceLaps/" + track + "/")
-            else:
-                ac.log(AppName + ": Couldn't import " + import_file)
+                if not track == "none":
+                    shutil.move(path + "/" + import_file, "apps/python/RallyTiming/referenceLaps/" + track + "/" + import_file)
+                    ac.log(AppName + ": Imported " + import_file + " to " + "apps/python/RallyTiming/referenceLaps/" + track + "/")
+                else:
+                    ac.log(AppName + ": Couldn't import " + import_file)
     except FileNotFoundError:
         ac.log(AppName + ": The folder " + path + " does not exist")
