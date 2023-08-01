@@ -83,9 +83,8 @@ save_replay = config.getboolean("REPLAY", "replaysave")
 ReplayIntro = config.getint("REPLAY", "replayintro")
 ReplayOutro = config.getint("REPLAY", "replayoutro")
 ImportReferenceFiles = config.getboolean("IMEXPORTING", "import")
-ImportReferenceFilePath = config.get("IMEXPORTING", "importpath").replace("\\", "/")
 ExportReferenceFiles = config.getboolean("IMEXPORTING", "export")
-ExportReferenceFilePath = config.get("IMEXPORTING", "exportpath").replace("\\", "/")
+ImportExportPath = config.get("IMEXPORTING", "importexportpath").replace("\\", "/")
 
 with open("apps/python/RallyTiming/config/lang.json", "r", encoding="utf-8") as file:
     lang = json.load(file)
@@ -275,7 +274,7 @@ def acMain(ac_version):
     fix_reffile_amount_and_choose_fastest()
 
     if ImportReferenceFiles:
-        import_reffiles(ImportReferenceFilePath)
+        import_reffiles(ImportExportPath)
 
     return AppName
 
@@ -1401,13 +1400,13 @@ class SaveReplayWorker:
                             self.general_cfg.write(f, space_around_delimiters=False)
                         # export
                         if ExportReferenceFiles:
-                            if os.path.exists(ExportReferenceFilePath):
-                                with zipfile.ZipFile(ExportReferenceFilePath + "/" + self.file_name.replace(".acreplay", ".zip"), "w", compression=zipfile.ZIP_DEFLATED) as zipF:
+                            if os.path.exists(ImportExportPath):
+                                with zipfile.ZipFile(ImportExportPath + "/" + self.file_name.replace(".acreplay", ".zip"), "w", compression=zipfile.ZIP_DEFLATED) as zipF:
                                     zipF.write(self.replay_path + self.file_name, self.file_name)
                                     zipF.write(ReferenceFolder + "/" + self.file_name.replace(".acreplay", ".refl"), self.file_name.replace(".acreplay", ".refl"))
-                                    ac.log(AppName + ": Exported to " + ExportReferenceFilePath + "/" + self.file_name.replace(".acreplay", ".zip"))
+                                    ac.log(AppName + ": Exported to " + ImportExportPath + "/" + self.file_name.replace(".acreplay", ".zip"))
                             else:
-                                ac.log(AppName + ": folder at " + ExportReferenceFilePath + " does not exist")
+                                ac.log(AppName + ": folder at " + ImportExportPath + " does not exist")
 
                     else:
                         ac.log(AppName + ": Replay clip not found!")
