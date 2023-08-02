@@ -1,13 +1,14 @@
 #######################################################################
-# Rally Timing v1.63                                                  #
+# Rally Timing v1.64                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 25/07/2023                            #
+# Copyright wimdes & schlaubi77 01/08/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.64 automated import and export of reference & replay files       #
 # v1.63 warning when track doesn't have AI line                       #
 # v1.62 include config.ini again                                      #
 # v1.61 show start spline position in app settings                    #
