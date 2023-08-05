@@ -9,6 +9,7 @@
 #                                                                     #
 # changelog:                                                          #
 # v1.65 fix replay overwrite by watching replay right after finish    #
+#       put stage name in exported zip filename                       #
 # v1.64 automated import and export of reference & replay files       #
 # v1.63 warning when track doesn't have AI line                       #
 # v1.62 include config.ini again                                      #
@@ -1404,10 +1405,10 @@ class SaveReplayWorker:
                         # export
                         if ExportReferenceFiles:
                             if os.path.exists(ImportExportPath):
-                                with zipfile.ZipFile(ImportExportPath + "/" + self.file_name.replace(".acreplay", ".zip"), "w", compression=zipfile.ZIP_DEFLATED) as zipF:
+                                with zipfile.ZipFile(ImportExportPath + "/" + TrackName + "_" + self.file_name.replace(".acreplay", ".zip"), "w", compression=zipfile.ZIP_DEFLATED) as zipF:
                                     zipF.write(self.replay_path + self.file_name, self.file_name)
                                     zipF.write(ReferenceFolder + "/" + self.file_name.replace(".acreplay", ".refl"), self.file_name.replace(".acreplay", ".refl"))
-                                    ac.log(AppName + ": Exported to " + ImportExportPath + "/" + self.file_name.replace(".acreplay", ".zip"))
+                                    ac.log(AppName + ": Exported to " + ImportExportPath + "/" + TrackName + "_" + self.file_name.replace(".acreplay", ".zip"))
                             else:
                                 ac.log(AppName + ": folder at " + ImportExportPath + " does not exist")
 
