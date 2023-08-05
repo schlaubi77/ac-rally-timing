@@ -1,13 +1,14 @@
 #######################################################################
-# Rally Timing v1.64                                                  #
+# Rally Timing v1.65                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 01/08/2023                            #
+# Copyright wimdes & schlaubi77 06/08/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.65 fix replay overwrite by watching replay right after finish    #
 # v1.64 automated import and export of reference & replay files       #
 # v1.63 warning when track doesn't have AI line                       #
 # v1.62 include config.ini again                                      #
@@ -343,6 +344,7 @@ def acUpdate(deltaT):
 
     # in stage, but lap done => finished
     if Status in (3, 5) and LapCount > LapCountTracker and info.graphics.status == 2:  # 0=off, 1=replay, 2=driving, 3=pause
+        LapCountTracker = ac.getCarState(0, acsys.CS.LapCount)
         write_reference_file(data_collected, ReferenceFolder, info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
         replay_worker.save_replay(info.graphics.iLastTime if info.graphics.iLastTime > 0 else info.graphics.iCurrentTime)
         CheckFastestTime = True
