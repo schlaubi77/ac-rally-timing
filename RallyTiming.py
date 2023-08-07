@@ -1,5 +1,5 @@
 #######################################################################
-# Rally Timing v1.65                                                  #
+# Rally Timing v1.66                                                  #
 #                                                                     #
 # Copyright wimdes & schlaubi77 06/08/2023                            #
 # Released under the terms of GPLv3                                   #
@@ -8,6 +8,7 @@
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.66 register skin in reference file                               #
 # v1.65 fix replay overwrite by watching replay right after finish    #
 #       put stage name in exported zip filename                       #
 # v1.64 automated import and export of reference & replay files       #
@@ -1115,6 +1116,7 @@ def write_reference_file(origin_data, path, time):
     filename = str(int(time // 60000)).zfill(2) + "." + str(time // 1000 % 60).zfill(2) + "." + str(
         int(time % 1000)).zfill(3) + "_" + ac.getDriverName(0) + "_" + ac.getCarName(0).replace("_", "-") + ".refl"
     weather = get_weather()
+    skin = get_skin()
     write = ["#Car: " + ac.getCarName(0),
              "\n#Track: " + TrackName,
              "\n#Driver: " + ac.getDriverName(0),
@@ -1122,6 +1124,7 @@ def write_reference_file(origin_data, path, time):
              "\n#In-game time: " + weather["GAMETIME"]["HOUR"],
              "\n#Stage time: " + str(int(time // 60000)).zfill(2) + ":" + str(time // 1000 % 60).zfill(2) + "." + str(int(time % 1000)).zfill(3),
              "\n#Speed on startline: {:.2f}".format(StartSpeed) + " km/h",
+             "\n#Car Skin: " + skin,
              "\n#Comments: ",
              "\n#Weather: " + weather["WEATHER"]["NAME"],
              "\n#Temperature Road: " + weather["TEMPERATURE"]["ROAD"],
@@ -1148,6 +1151,19 @@ def format_filename_for_list(name):
     concated += "_".join(splitted[1:-1]).ljust(18)  # padded name
     concated += splitted[-1].replace(".refl", "").replace("-", " ")  # car name
     return concated
+
+
+def get_skin():
+    log_path = os.path.join(os.environ['USERPROFILE'], 'documents', 'Assetto Corsa', 'logs', 'log.txt')
+    with open(log_path, 'r') as f:
+        for line in f:
+            if '[CAR_0]' in line:
+                break
+        for line in f:
+            if 'SKIN' in line:
+                skin = line.split('=')[1].strip()
+                break
+    return skin
 
 
 def get_weather():
