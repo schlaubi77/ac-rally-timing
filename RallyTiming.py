@@ -1155,6 +1155,7 @@ def format_filename_for_list(name):
 
 def get_skin():
     log_path = os.path.join(os.environ['USERPROFILE'], 'documents', 'Assetto Corsa', 'logs', 'log.txt')
+    skin = "SKIN_NOT_DETECTED"
     with open(log_path, 'r') as f:
         for line in f:
             if '[CAR_0]' in line:
@@ -1421,7 +1422,7 @@ class SaveReplayWorker:
                         # export
                         if ExportReferenceFiles:
                             if os.path.exists(ImportExportPath):
-                                with zipfile.ZipFile(ImportExportPath + "/" + TrackName + "_" + self.file_name.replace(".acreplay", ".zip"), "w", compression=zipfile.ZIP_DEFLATED) as zipF:
+                                with zipfile.ZipFile(ImportExportPath + "/" + TrackName.replace("/", "-") + "_" + self.file_name.replace(".acreplay", ".zip"), "w", compression=zipfile.ZIP_DEFLATED) as zipF:
                                     zipF.write(self.replay_path + self.file_name, self.file_name)
                                     zipF.write(ReferenceFolder + "/" + self.file_name.replace(".acreplay", ".refl"), self.file_name.replace(".acreplay", ".refl"))
                                     ac.log(AppName + ": Exported to " + ImportExportPath + "/" + TrackName + "_" + self.file_name.replace(".acreplay", ".zip"))
