@@ -1,14 +1,14 @@
 #######################################################################
 # Rally Timing v1.66                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 06/08/2023                            #
+# Copyright wimdes & schlaubi77 12/08/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
-# v1.66 register skin in reference file                               #
+# v1.66 register skin in refl file, fix export for multi track layout #
 # v1.65 fix replay overwrite by watching replay right after finish    #
 #       put stage name in exported zip filename                       #
 # v1.64 automated import and export of reference & replay files       #
@@ -1425,7 +1425,7 @@ class SaveReplayWorker:
                                 with zipfile.ZipFile(ImportExportPath + "/" + TrackName.replace("/", "-") + "_" + self.file_name.replace(".acreplay", ".zip"), "w", compression=zipfile.ZIP_DEFLATED) as zipF:
                                     zipF.write(self.replay_path + self.file_name, self.file_name)
                                     zipF.write(ReferenceFolder + "/" + self.file_name.replace(".acreplay", ".refl"), self.file_name.replace(".acreplay", ".refl"))
-                                    ac.log(AppName + ": Exported to " + ImportExportPath + "/" + TrackName + "_" + self.file_name.replace(".acreplay", ".zip"))
+                                    ac.log(AppName + ": Exported to " + ImportExportPath + "/" + TrackName.replace("/", "-") + "_" + self.file_name.replace(".acreplay", ".zip"))
                             else:
                                 ac.log(AppName + ": folder at " + ImportExportPath + " does not exist")
 
