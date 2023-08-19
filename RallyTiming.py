@@ -1,13 +1,14 @@
 #######################################################################
-# Rally Timing v1.66                                                  #
+# Rally Timing v1.67                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 12/08/2023                            #
+# Copyright wimdes & schlaubi77 20/08/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.67 fix to detect skin when playing on server                     #
 # v1.66 register skin in refl file, fix export for multi track layout #
 # v1.65 fix replay overwrite by watching replay right after finish    #
 #       put stage name in exported zip filename                       #
@@ -215,7 +216,6 @@ line1, line2, line3, line4, line5, line6 = [0 for i in range(6)]
 # ac.console (AppName + ": Meter: {:.10f}".format(Meter))
 # ac.console (AppName + ": Centimeter: {:.10f}".format(Meter / 100))
 # ac.log(AppName + " test entry")
-
 
 def acMain(ac_version):
     global line1, line2, line3, line4, line5, line6, appWindow, appWindowSize
@@ -1157,13 +1157,21 @@ def get_skin():
     log_path = os.path.join(os.environ['USERPROFILE'], 'documents', 'Assetto Corsa', 'logs', 'log.txt')
     skin = "SKIN_NOT_DETECTED"
     with open(log_path, 'r') as f:
-        for line in f:
-            if '[CAR_0]' in line:
-                break
-        for line in f:
-            if 'SKIN' in line:
-                skin = line.split('=')[1].strip()
-                break
+        if OnServer:
+            for line in f:
+                if line.startswith('SKINNED TEXTURE'):
+                    start_index = line.find('skins/') + len('skins/')
+                    end_index = line.find('/', start_index)
+                    skin = line[start_index:end_index]
+                    break
+        else:
+            for line in f:
+                if '[CAR_0]' in line:
+                    break
+            for line in f:
+                if 'SKIN' in line:
+                    skin = line.split('=')[1].strip()
+                    break
     return skin
 
 
