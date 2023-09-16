@@ -1,13 +1,14 @@
 #######################################################################
-# Rally Timing v1.67                                                  #
+# Rally Timing v1.68                                                  #
 #                                                                     #
-# Copyright wimdes & schlaubi77 20/08/2023                            #
+# Copyright wimdes & schlaubi77 15/09/2023                            #
 # Released under the terms of GPLv3                                   #
 # thx to Hecrer, PleaseStopThis, NightEye87, KubaV383, wmialil, GPT-4 #
 #                                                                     #
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.68 fix for systems where AC logfiles are not in default location #
 # v1.67 fix to detect skin when playing on server                     #
 # v1.66 register skin in refl file, fix export for multi track layout #
 # v1.65 fix replay overwrite by watching replay right after finish    #
@@ -116,6 +117,7 @@ reference_stage_time_int = 0
 CheckFastestTime = False
 SavedReplayMode = False
 LastGraphicsStatus = 0
+log_path="unknown"
 
 # Determine track name & layout
 if ac.getTrackConfiguration(0) != "":
@@ -266,6 +268,7 @@ def acMain(ac_version):
     window_progress_bar = ProgressBarWindow()
 
     replay_worker = SaveReplayWorker(assetto_corsa_folder_path, "apps/python/RallyTiming/replays/" + TrackName + "/", save_replay)
+    get_log_path()
 
     lines = []
     for i in range(6):
@@ -1154,8 +1157,10 @@ def format_filename_for_list(name):
 
 
 def get_skin():
-    log_path = os.path.join(os.environ['USERPROFILE'], 'documents', 'Assetto Corsa', 'logs', 'log.txt')
     skin = "SKIN_NOT_DETECTED"
+    if log_path == "unknown":
+        return skin
+
     with open(log_path, 'r') as f:
         if OnServer:
             for line in f:
@@ -1177,7 +1182,20 @@ def get_skin():
 
 def get_weather():
     data = {}
-    log_path = os.path.join(os.environ['USERPROFILE'], 'documents', 'Assetto Corsa', 'logs', 'log.txt')
+    keys = ["WEATHER", "TEMPERATURE", "WIND", "GAMETIME"]
+    sub_keys = {"WEATHER": ["NAME"], "TEMPERATURE": ["AMBIENT", "ROAD"], "WIND": ["SPEED_KMH_MAX", "DIRECTION_DEG"], "GAMETIME": ["HOUR"]}
+    for key in keys:
+        if key not in data:
+            data[key] = {sub_key: "unknown" for sub_key in sub_keys[key]}
+        else:
+            for sub_key in sub_keys[key]:
+                if sub_key not in data[key]:
+                    data[key][sub_key] = "unknown"
+                elif not data[key][sub_key]:
+                    data[key][sub_key] = "unknown"
+
+    if log_path == "unknown":
+        return data
 
     if OnServer:
         with open(log_path, "r") as file:
@@ -1220,18 +1238,6 @@ def get_weather():
         if 'current day' in line:
             data["GAMETIME"] = {"HOUR": line[-8:-3]}
 
-    keys = ["WEATHER", "TEMPERATURE", "WIND", "GAMETIME"]
-    sub_keys = {"WEATHER": ["NAME"], "TEMPERATURE": ["AMBIENT", "ROAD"], "WIND": ["SPEED_KMH_MAX", "DIRECTION_DEG"],
-                "GAMETIME": ["HOUR"]}
-    for key in keys:
-        if key not in data:
-            data[key] = {sub_key: "unknown" for sub_key in sub_keys[key]}
-        else:
-            for sub_key in sub_keys[key]:
-                if sub_key not in data[key]:
-                    data[key][sub_key] = "unknown"
-                elif not data[key][sub_key]:
-                    data[key][sub_key] = "unknown"
     return data
 
 
@@ -1486,3 +1492,19 @@ def import_reffiles(path):
                     ac.log(AppName + ": Couldn't import " + import_file)
     except FileNotFoundError:
         ac.log(AppName + ": The folder " + path + " does not exist")
+
+
+def get_log_path():
+    global log_path
+    for path in [
+    os.path.join(os.environ['USERPROFILE'], 'documents', 'Assetto Corsa', 'logs', 'log.txt'),
+    os.path.join(os.environ['USERPROFILE'], 'OneDrive', 'documents', 'Assetto Corsa', 'logs', 'log.txt'),
+    os.path.join(os.environ['USERPROFILE'], 'documentos', 'Assetto Corsa', 'logs', 'log.txt'),
+    os.path.join(os.environ['USERPROFILE'], 'OneDrive', 'documentos', 'Assetto Corsa', 'logs', 'log.txt')
+    ]:
+        if os.path.isfile(path):
+            file_time = os.path.getmtime(path)
+            current_time = time.time()
+            if (current_time - file_time) / 3600 <= 1:
+                log_path = path
+    ac.log(AppName + ": AC Python log path: " + log_path)
