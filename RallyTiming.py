@@ -1,5 +1,5 @@
 #######################################################################
-# Rally Timing v1.68                                                  #
+# Rally Timing v1.69                                                  #
 #                                                                     #
 # Copyright wimdes & schlaubi77 15/09/2023                            #
 # Released under the terms of GPLv3                                   #
@@ -8,6 +8,7 @@
 # Find the AC Rally Wiki on Racedepartment: https://bit.ly/3HCELP3    #
 #                                                                     #
 # changelog:                                                          #
+# v1.69 fix reset wheel button selection in config                    #
 # v1.68 fix for systems where AC logfiles are not in default location #
 # v1.67 fix to detect skin when playing on server                     #
 # v1.66 register skin in refl file, fix export for multi track layout #
